@@ -9,5 +9,5 @@ fi
 
 cargo build --release --target "$target"
 mkdir -p bin
-cp "target/$target/release/simplearchpackageinstaller" bin/simplearchpackageinstaller
-echo "bin/simplearchpackageinstaller ($target)"
+cp "target/$target/release/simplepackageinstaller" bin/simplepackageinstaller
+echo "bin/simplepackageinstaller ($target)"

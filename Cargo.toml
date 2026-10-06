@@ -1,5 +1,5 @@
 [package]
-name = "simplearchpackageinstaller"
+name = "simplepackageinstaller"
 version = "0.1.0"
 edition = "2024"
 

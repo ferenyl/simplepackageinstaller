@@ -213,7 +213,7 @@ impl SelectView {
         let auto = effective.iter().zip(&self.selected).filter(|&(&e, &s)| e && !s).count();
         let update = if self.system_update { "yes" } else { "no" };
         let title =
-            format!(" simplearchpackageinstaller · {user} selected, +{auto} dependencies · system update: {update} ");
+            format!(" simplepackageinstaller · {user} selected, +{auto} dependencies · system update: {update} ");
         let list = List::new(items)
             .block(Block::bordered().title(title.bold()))
             .highlight_style(Style::new().bg(Color::DarkGray).add_modifier(Modifier::BOLD));

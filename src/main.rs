@@ -21,11 +21,11 @@ fn main() -> Result<()> {
             "--dry-run" => dry_run = true,
             "--config" => config_path = Some(PathBuf::from(args.next().context("--config requires a path")?)),
             "-h" | "--help" => {
-                println!("simplearchpackageinstaller [--config packages.yaml] [--dry-run] [--version]");
+                println!("simplepackageinstaller [--config packages.yaml] [--dry-run] [--version]");
                 return Ok(());
             }
             "-V" | "--version" => {
-                println!("simplearchpackageinstaller {}", env!("CARGO_PKG_VERSION"));
+                println!("simplepackageinstaller {}", env!("CARGO_PKG_VERSION"));
                 return Ok(());
             }
             other => bail!("unknown argument: {other}"),

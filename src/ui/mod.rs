@@ -107,7 +107,7 @@ impl App {
         }));
 
         let stamp = SystemTime::now().duration_since(UNIX_EPOCH).map(|d| d.as_secs()).unwrap_or(0);
-        let cache = home().join(".cache/simplearchpackageinstaller");
+        let cache = home().join(".cache/simplepackageinstaller");
         let ctx = Context {
             config_dir: self.config_dir.clone(),
             dry_run: self.dry_run,

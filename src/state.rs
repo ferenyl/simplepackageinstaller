@@ -55,7 +55,7 @@ impl InstalledState {
 
 fn marker_dir() -> PathBuf {
     let base = std::env::var_os("XDG_STATE_HOME").map(PathBuf::from).unwrap_or_else(|| home().join(".local/state"));
-    base.join("simplearchpackageinstaller")
+    base.join("simplepackageinstaller")
 }
 
 pub fn home() -> PathBuf {

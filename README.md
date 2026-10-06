@@ -1,8 +1,8 @@
-# simplearchpackageinstaller
+# simplepackageinstaller
 
 A small terminal UI (TUI) for setting up an Arch Linux machine from a single declarative YAML file.
 
-You describe everything you want on a machine — pacman packages, AUR packages, Flatpaks, npm/cargo/uv/dotnet tools, systemd services and custom shell scripts — in `packages.yaml`. `simplearchpackageinstaller` shows it as a collapsible checklist, detects what is already installed, resolves dependencies, and installs the rest in the correct order with live logs.
+You describe everything you want on a machine — pacman packages, AUR packages, Flatpaks, npm/cargo/uv/dotnet tools, systemd services and custom shell scripts — in `packages.yaml`. `simplepackageinstaller` shows it as a collapsible checklist, detects what is already installed, resolves dependencies, and installs the rest in the correct order with live logs.
 
 ## Features
 
@@ -22,11 +22,11 @@ You describe everything you want on a machine — pacman packages, AUR packages,
 
 ### Prebuilt binary
 
-Download `simplearchpackageinstaller` from the latest [GitHub release](../../releases/latest) and make it executable:
+Download `simplepackageinstaller` from the latest [GitHub release](../../releases/latest) and make it executable:
 
 ```sh
-chmod +x simplearchpackageinstaller
-./simplearchpackageinstaller --help
+chmod +x simplepackageinstaller
+./simplepackageinstaller --help
 ```
 
 ### From source
@@ -34,7 +34,7 @@ chmod +x simplearchpackageinstaller
 Requires a Rust toolchain (edition 2024, Rust 1.88+).
 
 ```sh
-./build.sh          # builds a release binary into bin/simplearchpackageinstaller
+./build.sh          # builds a release binary into bin/simplepackageinstaller
 # or
 cargo build --release
 ```
@@ -44,7 +44,7 @@ cargo build --release
 ## Usage
 
 ```sh
-simplearchpackageinstaller [--config packages.yaml] [--dry-run] [--version]
+simplepackageinstaller [--config packages.yaml] [--dry-run] [--version]
 ```
 
 | Option | Description |
@@ -240,7 +240,7 @@ Script steps run with `bash -euo pipefail`, with the config's directory as worki
 | `CONFIG_PATH` | Directory containing the config. |
 | `FILES` | `$CONFIG_PATH/files` — a convenient place for dotfiles and assets. |
 
-After a successful run a marker file is written to `$XDG_STATE_HOME/simplearchpackageinstaller/<name>.done` (default `~/.local/state/simplearchpackageinstaller/`), so the script is not run again. Delete the marker or press `R` to run it again; set `always: true` to run it on every install.
+After a successful run a marker file is written to `$XDG_STATE_HOME/simplepackageinstaller/<name>.done` (default `~/.local/state/simplepackageinstaller/`), so the script is not run again. Delete the marker or press `R` to run it again; set `always: true` to run it on every install.
 
 A typical layout:
 
@@ -278,9 +278,9 @@ How the sudo password is handled:
 
 | Path | Contents |
 | --- | --- |
-| `~/.cache/simplearchpackageinstaller/<timestamp>.log` | Full log of each run. |
-| `~/.cache/simplearchpackageinstaller/shim/sudo` | The non-interactive sudo wrapper. |
-| `~/.local/state/simplearchpackageinstaller/*.done` | Markers for scripts that have run. |
+| `~/.cache/simplepackageinstaller/<timestamp>.log` | Full log of each run. |
+| `~/.cache/simplepackageinstaller/shim/sudo` | The non-interactive sudo wrapper. |
+| `~/.local/state/simplepackageinstaller/*.done` | Markers for scripts that have run. |
 
 ## Development
 
@@ -293,7 +293,7 @@ cargo build --release
 ### CI and releases
 
 - **CI** (`.github/workflows/ci.yml`) runs on pull requests and pushes to `main`: `cargo fmt --check`, `cargo clippy -D warnings`, and a release build of the static binary.
-- **Release** (`.github/workflows/release.yml`) runs when a GitHub release is published. The release tag is the version: `v1.2.3` (or `1.2.3`) must be semver and on `main`. The workflow sets that version in `Cargo.toml` before building, so `simplearchpackageinstaller --version` matches the release, then builds a static musl binary and attaches the binary, a tarball and checksums to the release.
+- **Release** (`.github/workflows/release.yml`) runs when a GitHub release is published. The release tag is the version: `v1.2.3` (or `1.2.3`) must be semver and on `main`. The workflow sets that version in `Cargo.toml` before building, so `simplepackageinstaller --version` matches the release, then builds a static musl binary and attaches the binary, a tarball and checksums to the release.
 
 To release, create a new release on GitHub (*Releases → Draft a new release*), create a tag such as `v0.2.0` on `main`, and publish. Or with the GitHub CLI:
 

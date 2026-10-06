@@ -3,7 +3,7 @@
 /bin
 
 # Release artifacts
-/simplearchpackageinstaller-*/
+/simplepackageinstaller-*/
 *.tar.gz
 SHA256SUMS
 
