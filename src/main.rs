@@ -34,7 +34,9 @@ fn main() -> Result<()> {
 
     let config_path = match config_path {
         Some(p) => p,
-        None => find_config().context("packages.yaml not found, use --config")?,
+        None => find_config().context(
+            "packages.yaml not found in the current directory or $XDG_CONFIG_HOME/simplepackageinstaller, use --config",
+        )?,
     };
     let config_path = config_path.canonicalize()?;
     let config_dir = config_path.parent().context("config has no parent directory")?.to_path_buf();
@@ -47,7 +49,7 @@ fn main() -> Result<()> {
     result
 }
 
+/// `./packages.yaml`, then `$XDG_CONFIG_HOME/simplepackageinstaller/packages.yaml`.
 fn find_config() -> Option<PathBuf> {
-    let path = PathBuf::from("packages.yaml");
-    path.is_file().then_some(path)
+    [PathBuf::from("packages.yaml"), state::user_config_dir().join("packages.yaml")].into_iter().find(|p| p.is_file())
 }

@@ -53,9 +53,32 @@ impl InstalledState {
     }
 }
 
+const APP: &str = "simplepackageinstaller";
+
 fn marker_dir() -> PathBuf {
-    let base = std::env::var_os("XDG_STATE_HOME").map(PathBuf::from).unwrap_or_else(|| home().join(".local/state"));
-    base.join("simplepackageinstaller")
+    state_dir()
+}
+
+pub fn state_dir() -> PathBuf {
+    xdg("XDG_STATE_HOME").unwrap_or_else(|| home().join(".local/state")).join(APP)
+}
+
+pub fn cache_dir() -> PathBuf {
+    xdg("XDG_CACHE_HOME").unwrap_or_else(|| home().join(".cache")).join(APP)
+}
+
+pub fn user_config_dir() -> PathBuf {
+    xdg("XDG_CONFIG_HOME").unwrap_or_else(|| home().join(".config")).join(APP)
+}
+
+/// Falls back to the cache dir when no runtime dir is available.
+pub fn runtime_dir() -> PathBuf {
+    xdg("XDG_RUNTIME_DIR").map(|d| d.join(APP)).unwrap_or_else(cache_dir)
+}
+
+/// The spec says unset, empty and relative values must be ignored.
+fn xdg(var: &str) -> Option<PathBuf> {
+    std::env::var_os(var).map(PathBuf::from).filter(|p| p.is_absolute())
 }
 
 pub fn home() -> PathBuf {

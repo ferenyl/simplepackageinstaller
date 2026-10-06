@@ -14,7 +14,7 @@ use ratatui::{DefaultTerminal, Frame};
 use crate::config::Config;
 use crate::runner::{self, Context, Job};
 use crate::source::{self, Source};
-use crate::state::{InstalledState, home};
+use crate::state::{self, InstalledState};
 
 use run::RunView;
 use select::{Action, SelectView};
@@ -107,12 +107,11 @@ impl App {
         }));
 
         let stamp = SystemTime::now().duration_since(UNIX_EPOCH).map(|d| d.as_secs()).unwrap_or(0);
-        let cache = home().join(".cache/simplepackageinstaller");
         let ctx = Context {
             config_dir: self.config_dir.clone(),
             dry_run: self.dry_run,
-            log_file: cache.join(format!("{stamp}.log")),
-            shim_dir: cache.join("shim"),
+            log_file: state::state_dir().join("logs").join(format!("{stamp}.log")),
+            shim_dir: state::runtime_dir().join("shim"),
         };
         let log_file = ctx.log_file.clone();
         let (tx, rx) = mpsc::channel();

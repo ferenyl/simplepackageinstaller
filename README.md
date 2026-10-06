@@ -49,7 +49,7 @@ simplepackageinstaller [--config packages.yaml] [--dry-run] [--version]
 
 | Option | Description |
 | --- | --- |
-| `--config <path>` | Path to the config. Defaults to `packages.yaml` in the current directory. |
+| `--config <path>` | Path to the config. Defaults to `./packages.yaml`, then `$XDG_CONFIG_HOME/simplepackageinstaller/packages.yaml` (default `~/.config/simplepackageinstaller/`). |
 | `--dry-run` | Show and "run" all commands without executing anything. |
 | `-V`, `--version` | Show version. |
 | `-h`, `--help` | Show usage. |
@@ -278,9 +278,12 @@ How the sudo password is handled:
 
 | Path | Contents |
 | --- | --- |
-| `~/.cache/simplepackageinstaller/<timestamp>.log` | Full log of each run. |
-| `~/.cache/simplepackageinstaller/shim/sudo` | The non-interactive sudo wrapper. |
-| `~/.local/state/simplepackageinstaller/*.done` | Markers for scripts that have run. |
+| `$XDG_CONFIG_HOME/simplepackageinstaller/packages.yaml` | Config, if not in the current directory or given with `--config`. |
+| `$XDG_STATE_HOME/simplepackageinstaller/logs/<timestamp>.log` | Full log of each run. |
+| `$XDG_STATE_HOME/simplepackageinstaller/*.done` | Markers for scripts that have run. |
+| `$XDG_RUNTIME_DIR/simplepackageinstaller/shim/sudo` | The non-interactive sudo wrapper. Falls back to `$XDG_CACHE_HOME/simplepackageinstaller/shim/` without a runtime dir. |
+
+Unset XDG variables fall back to the spec defaults: `~/.config`, `~/.local/state` and `~/.cache`.
 
 ## Development
 
