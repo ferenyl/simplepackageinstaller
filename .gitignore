@@ -1,0 +1,30 @@
+# Build output
+/target
+/bin
+
+# Release artifacts
+/simplearchpackageinstaller-*/
+*.tar.gz
+SHA256SUMS
+
+# rustfmt / merge leftovers
+**/*.rs.bk
+*.orig
+
+# Editors / IDEs
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+
+# Local config used for testing
+/packages.yaml
+/scripts/
+/files/
+
+# Environment
+.env

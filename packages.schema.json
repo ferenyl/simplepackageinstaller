@@ -1,0 +1,84 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "simplearchpackageinstaller packages",
+  "type": "object",
+  "required": ["sections"],
+  "additionalProperties": false,
+  "properties": {
+    "sections": {
+      "type": "array",
+      "description": "Huvudavsnitt i installern, i körordning.",
+      "items": { "$ref": "#/definitions/section" }
+    }
+  },
+  "definitions": {
+    "strings": {
+      "oneOf": [
+        { "type": "string" },
+        { "type": "array", "items": { "type": "string" } }
+      ]
+    },
+    "section": {
+      "type": "object",
+      "required": ["name", "groups"],
+      "additionalProperties": false,
+      "properties": {
+        "name": { "type": "string", "description": "Rubrik. Id blir namnet i slug-form (t.ex. desktop-hardvara)." },
+        "required": { "type": "boolean", "description": "Obligatoriskt: alltid ikryssat och kan inte kryssas ur. Ärvs nedåt; närmaste nivå vinner." },
+        "selected": { "type": "boolean", "description": "Förikryssat vid start men går att kryssa ur. Ärvs nedåt; närmaste nivå vinner." },
+        "requires": { "$ref": "#/definitions/strings", "description": "Paket eller avsnitts-id som alla paket i avsnittet kräver." },
+        "groups": { "type": "array", "items": { "$ref": "#/definitions/group" } }
+      }
+    },
+    "group": {
+      "type": "object",
+      "required": ["name"],
+      "additionalProperties": false,
+      "properties": {
+        "name": { "type": "string", "description": "Logisk grupp under avsnittet." },
+        "required": { "type": "boolean", "description": "Obligatoriskt: alltid ikryssat och kan inte kryssas ur. Ärvs nedåt; närmaste nivå vinner." },
+        "selected": { "type": "boolean", "description": "Förikryssat vid start men går att kryssa ur. Ärvs nedåt; närmaste nivå vinner." },
+        "pacman": { "$ref": "#/definitions/packages", "description": "sudo pacman -S --needed --noconfirm <flags> <name>" },
+        "paru": { "$ref": "#/definitions/packages", "description": "AUR via paru -S --needed --noconfirm <flags> <name>. Kräver paketet 'paru'." },
+        "flatpak": { "$ref": "#/definitions/packages", "description": "flatpak install -y flathub <flags> <app-id>. Kräver paketet 'flatpak'." },
+        "npm": { "$ref": "#/definitions/packages", "description": "sudo npm install -g <flags> <name>. Kräver paketet 'npm'." },
+        "cargo": { "$ref": "#/definitions/packages", "description": "cargo install --locked <flags> <crate>. Kräver paketet 'rust'." },
+        "uv": { "$ref": "#/definitions/packages", "description": "uv tool install <flags> <name>. Kräver paketet 'uv'." },
+        "dotnet": { "$ref": "#/definitions/packages", "description": "dotnet tool update -g <flags> <id>. Kräver paketet 'dotnet'." },
+        "script": { "$ref": "#/definitions/packages", "description": "Kör scripts/<namn>.sh (eller file) med bash -euo pipefail, cwd = configens katalog. Env: CONFIG_PATH (configens katalog), FILES (CONFIG_PATH/files). Körs en gång (markörfil)." }
+      }
+    },
+    "packages": {
+      "type": "array",
+      "items": {
+        "oneOf": [
+          { "type": "string", "description": "Paketnamn utan tillval." },
+          {
+            "type": "object",
+            "description": "Paketnamn som nyckel, tillval som värde.",
+            "minProperties": 1,
+            "maxProperties": 1,
+            "additionalProperties": {
+              "oneOf": [{ "type": "null" }, { "$ref": "#/definitions/options" }]
+            }
+          }
+        ]
+      }
+    },
+    "options": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "flags": { "$ref": "#/definitions/strings", "description": "Extra flaggor till installationskommandot." },
+        "service": { "$ref": "#/definitions/strings", "description": "sudo systemctl enable --now <service> efter installation." },
+        "user_service": { "$ref": "#/definitions/strings", "description": "systemctl --user enable <service> efter installation." },
+        "post": { "$ref": "#/definitions/strings", "description": "Shell-kommandon som körs efter installation." },
+        "required": { "type": "boolean", "description": "Obligatoriskt: alltid ikryssat och kan inte kryssas ur. Ärvs nedåt; närmaste nivå vinner." },
+        "selected": { "type": "boolean", "description": "Förikryssat vid start men går att kryssa ur. Ärvs nedåt; närmaste nivå vinner." },
+        "always": { "type": "boolean", "description": "Endast script: kör varje gång paketet behövs, utan markörfil." },
+        "file": { "type": "string", "description": "Endast script: sökväg till scriptet, relativ till configen, absolut eller ~/. Default scripts/<namn>.sh. flags skickas som argument." },
+        "requires": { "$ref": "#/definitions/strings", "description": "Paket eller avsnitts-id som måste installeras först." }
+      }
+    }
+  }
+}
