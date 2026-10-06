@@ -44,13 +44,14 @@ cargo build --release
 ## Usage
 
 ```sh
-simplearchpackageinstaller [--config packages.yaml] [--dry-run]
+simplearchpackageinstaller [--config packages.yaml] [--dry-run] [--version]
 ```
 
 | Option | Description |
 | --- | --- |
 | `--config <path>` | Path to the config. Defaults to `packages.yaml` in the current directory. |
 | `--dry-run` | Show and "run" all commands without executing anything. |
+| `-V`, `--version` | Show version. |
 | `-h`, `--help` | Show usage. |
 
 Run it as your normal user, **not** as root. It asks for your sudo password once when the first step that needs it is reached.
@@ -292,9 +293,10 @@ cargo build --release
 ### CI and releases
 
 - **CI** (`.github/workflows/ci.yml`) runs on pull requests and pushes to `main`: `cargo fmt --check`, `cargo clippy -D warnings`, and a release build of the static binary.
-- **Release** (`.github/workflows/release.yml`) runs when a `v*` tag is pushed. It verifies that the tagged commit is on `main`, builds a static musl binary, and publishes a GitHub release with the binary, a tarball and checksums.
+- **Release** (`.github/workflows/release.yml`) runs when a GitHub release is published. The release tag is the version: `v1.2.3` (or `1.2.3`) must be semver and on `main`. The workflow sets that version in `Cargo.toml` before building, so `simplearchpackageinstaller --version` matches the release, then builds a static musl binary and attaches the binary, a tarball and checksums to the release.
+
+To release, create a new release on GitHub (*Releases → Draft a new release*), create a tag such as `v0.2.0` on `main`, and publish. Or with the GitHub CLI:
 
 ```sh
-git tag v0.1.0
-git push origin v0.1.0
+gh release create v0.2.0 --target main --generate-notes
 ```

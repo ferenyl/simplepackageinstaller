@@ -107,8 +107,7 @@ impl RunView {
     }
 
     pub fn render(&mut self, frame: &mut Frame) {
-        let [main, help] =
-            Layout::vertical([Constraint::Min(5), Constraint::Length(1)]).areas(frame.area());
+        let [main, help] = Layout::vertical([Constraint::Min(5), Constraint::Length(1)]).areas(frame.area());
         let selected = self.list.selected().unwrap_or(0);
 
         if self.fullscreen {
@@ -138,9 +137,9 @@ impl RunView {
         }
 
         let help_text = if self.done {
-            format!(" klart · logg: {} · ↑↓ välj  enter helskärm  q avsluta", self.log_file.display())
+            format!(" done · log: {} · ↑↓ select  enter fullscreen  q quit", self.log_file.display())
         } else {
-            " ↑↓ välj  f följ aktuell  enter helskärm  PgUp/PgDn scrolla".to_string()
+            " ↑↓ select  f follow current  enter fullscreen  PgUp/PgDn scroll".to_string()
         };
         frame.render_widget(Line::from(help_text).dim(), help);
 
@@ -155,7 +154,7 @@ impl RunView {
         let end = log.len().saturating_sub(self.scroll.min(log.len()));
         let start = end.saturating_sub(height);
         let lines: Vec<Line> = log[start..end].iter().map(|l| Line::from(l.as_str())).collect();
-        let title = format!(" logg · {} ", self.jobs[job].name);
+        let title = format!(" log · {} ", self.jobs[job].name);
         frame.render_widget(Paragraph::new(lines).block(Block::bordered().title(title)), area);
     }
 
@@ -167,7 +166,7 @@ impl RunView {
         let skipped = count(|s| s == Status::Skipped);
         format!(
             " {} {finished}/{} · ✗ {failed} · ⚠ {warn} · ⊘ {skipped} ",
-            if self.done { "Klart" } else { "Installerar" },
+            if self.done { "Done" } else { "Installing" },
             self.jobs.len()
         )
     }
@@ -175,12 +174,12 @@ impl RunView {
 
 fn describe(s: Status) -> (&'static str, Color, &'static str) {
     match s {
-        Status::Pending => ("○", Color::Gray, "väntar"),
-        Status::Running => ("⟳", Color::Yellow, "kör"),
-        Status::Done => ("✓", Color::Green, "klar"),
-        Status::AlreadyInstalled => ("↷", Color::DarkGray, "redan installerad"),
-        Status::PostFailed => ("⚠", Color::LightRed, "installerad, post failade"),
-        Status::Failed => ("✗", Color::Red, "fel"),
-        Status::Skipped => ("⊘", Color::DarkGray, "hoppad"),
+        Status::Pending => ("○", Color::Gray, "pending"),
+        Status::Running => ("⟳", Color::Yellow, "running"),
+        Status::Done => ("✓", Color::Green, "done"),
+        Status::AlreadyInstalled => ("↷", Color::DarkGray, "already installed"),
+        Status::PostFailed => ("⚠", Color::LightRed, "installed, post failed"),
+        Status::Failed => ("✗", Color::Red, "failed"),
+        Status::Skipped => ("⊘", Color::DarkGray, "skipped"),
     }
 }

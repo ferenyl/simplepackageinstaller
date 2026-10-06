@@ -83,7 +83,7 @@ impl App {
         if update {
             jobs.push(Job {
                 tag: "pacman",
-                name: "Systemuppdatering".into(),
+                name: "System update".into(),
                 deps: Vec::new(),
                 skip: false,
                 needs_sudo: true,
@@ -92,21 +92,19 @@ impl App {
                 marker: None,
             });
         }
-        jobs.extend(order
-            .iter()
-            .map(|&p| {
-                let pkg = &self.cfg.packages[p];
-                Job {
-                    tag: pkg.source.tag(),
-                    name: pkg.name.clone(),
-                    deps: pkg.requires.iter().filter_map(|&r| job_of(r)).collect(),
-                    skip: view.installed[p] && !view.forced[p],
-                    needs_sudo: source::needs_sudo(pkg, &self.config_dir),
-                    install: source::install_command(pkg, &self.config_dir),
-                    post: source::post_commands(pkg),
-                    marker: (pkg.source == Source::Script && !pkg.always).then(|| self.state.marker(&pkg.name)),
-                }
-            }));
+        jobs.extend(order.iter().map(|&p| {
+            let pkg = &self.cfg.packages[p];
+            Job {
+                tag: pkg.source.tag(),
+                name: pkg.name.clone(),
+                deps: pkg.requires.iter().filter_map(|&r| job_of(r)).collect(),
+                skip: view.installed[p] && !view.forced[p],
+                needs_sudo: source::needs_sudo(pkg, &self.config_dir),
+                install: source::install_command(pkg, &self.config_dir),
+                post: source::post_commands(pkg),
+                marker: (pkg.source == Source::Script && !pkg.always).then(|| self.state.marker(&pkg.name)),
+            }
+        }));
 
         let stamp = SystemTime::now().duration_since(UNIX_EPOCH).map(|d| d.as_secs()).unwrap_or(0);
         let cache = home().join(".cache/simplearchpackageinstaller");

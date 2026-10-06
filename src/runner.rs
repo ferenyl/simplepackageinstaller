@@ -84,7 +84,7 @@ fn run(jobs: Vec<Job>, ctx: Context, tx: Sender<Event>, sudo_rx: Receiver<bool>)
     let file = File::create(&ctx.log_file).ok().map(|f| Arc::new(Mutex::new(f)));
     let log = Logger { tx: tx.clone(), file };
     if let Err(e) = sudo::write_shim(&ctx.shim_dir) {
-        log.line(0, format!("kunde inte skapa sudo-shim: {e}"));
+        log.line(0, format!("could not create sudo shim: {e}"));
     }
 
     let mut statuses = vec![Status::Pending; jobs.len()];
@@ -96,7 +96,7 @@ fn run(jobs: Vec<Job>, ctx: Context, tx: Sender<Event>, sudo_rx: Receiver<bool>)
 
     for (i, job) in jobs.iter().enumerate() {
         if job.deps.iter().any(|&d| !statuses[d].is_ok()) {
-            log.line(i, "hoppas över: ett beroende misslyckades".into());
+            log.line(i, "skipped: a dependency failed".into());
             finish(&mut statuses, i, Status::Skipped);
             continue;
         }
@@ -145,11 +145,7 @@ fn run_command(job: usize, cmd: &str, ctx: &Context, log: &Logger) -> bool {
         std::thread::sleep(Duration::from_millis(80));
         return true;
     }
-    let path = format!(
-        "{}:{}",
-        ctx.shim_dir.display(),
-        std::env::var("PATH").unwrap_or_default()
-    );
+    let path = format!("{}:{}", ctx.shim_dir.display(), std::env::var("PATH").unwrap_or_default());
     let child = Command::new("bash")
         .args(["-c", cmd])
         .current_dir(&ctx.config_dir)
@@ -165,7 +161,7 @@ fn run_command(job: usize, cmd: &str, ctx: &Context, log: &Logger) -> bool {
     let mut child = match child {
         Ok(c) => c,
         Err(e) => {
-            log.line(job, format!("kunde inte starta: {e}"));
+            log.line(job, format!("could not start: {e}"));
             return false;
         }
     };
@@ -180,11 +176,11 @@ fn run_command(job: usize, cmd: &str, ctx: &Context, log: &Logger) -> bool {
     match status {
         Ok(s) if s.success() => true,
         Ok(s) => {
-            log.line(job, format!("avslutades med {s}"));
+            log.line(job, format!("exited with {s}"));
             false
         }
         Err(e) => {
-            log.line(job, format!("fel: {e}"));
+            log.line(job, format!("error: {e}"));
             false
         }
     }

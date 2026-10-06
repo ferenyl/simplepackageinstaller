@@ -48,14 +48,12 @@ impl PasswordPrompt {
                     sudo::start_keepalive();
                     return Outcome::Accepted;
                 }
-                self.error = Some("Fel lösenord, försök igen");
+                self.error = Some("Wrong password, try again");
             }
             KeyCode::Backspace => {
                 self.input.pop();
             }
-            KeyCode::Char(c) if self.input.len() + c.len_utf8() <= self.input.capacity() => {
-                self.input.push(c)
-            }
+            KeyCode::Char(c) if self.input.len() + c.len_utf8() <= self.input.capacity() => self.input.push(c),
             _ => {}
         }
         Outcome::Pending
@@ -78,15 +76,15 @@ impl PasswordPrompt {
     pub fn render(&self, frame: &mut Frame) {
         let area = centered(frame.area(), 50, 6);
         let mut lines = vec![
-            Line::from("Installationen kräver sudo."),
-            Line::from(format!("Lösenord: {}", "•".repeat(self.input.chars().count()))),
+            Line::from("The installation requires sudo."),
+            Line::from(format!("Password: {}", "•".repeat(self.input.chars().count()))),
         ];
         if let Some(e) = self.error {
             lines.push(Line::from(e).fg(Color::Red));
         }
         frame.render_widget(Clear, area);
         frame.render_widget(
-            Paragraph::new(lines).block(Block::bordered().title(" sudo · enter ok · esc avbryt ")),
+            Paragraph::new(lines).block(Block::bordered().title(" sudo · enter ok · esc cancel ")),
             area,
         );
     }

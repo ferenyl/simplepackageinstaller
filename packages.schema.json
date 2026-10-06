@@ -7,7 +7,7 @@
   "properties": {
     "sections": {
       "type": "array",
-      "description": "Huvudavsnitt i installern, i körordning.",
+      "description": "Top-level sections of the installer, in run order.",
       "items": { "$ref": "#/definitions/section" }
     }
   },
@@ -23,10 +23,10 @@
       "required": ["name", "groups"],
       "additionalProperties": false,
       "properties": {
-        "name": { "type": "string", "description": "Rubrik. Id blir namnet i slug-form (t.ex. desktop-hardvara)." },
-        "required": { "type": "boolean", "description": "Obligatoriskt: alltid ikryssat och kan inte kryssas ur. Ärvs nedåt; närmaste nivå vinner." },
-        "selected": { "type": "boolean", "description": "Förikryssat vid start men går att kryssa ur. Ärvs nedåt; närmaste nivå vinner." },
-        "requires": { "$ref": "#/definitions/strings", "description": "Paket eller avsnitts-id som alla paket i avsnittet kräver." },
+        "name": { "type": "string", "description": "Heading. The id is the slugified name (e.g. desktop-hardware)." },
+        "required": { "type": "boolean", "description": "Required: always selected and cannot be deselected. Inherited downwards; the closest level wins." },
+        "selected": { "type": "boolean", "description": "Preselected at start but can be deselected. Inherited downwards; the closest level wins." },
+        "requires": { "$ref": "#/definitions/strings", "description": "Packages or section ids required by every package in the section." },
         "groups": { "type": "array", "items": { "$ref": "#/definitions/group" } }
       }
     },
@@ -35,27 +35,27 @@
       "required": ["name"],
       "additionalProperties": false,
       "properties": {
-        "name": { "type": "string", "description": "Logisk grupp under avsnittet." },
-        "required": { "type": "boolean", "description": "Obligatoriskt: alltid ikryssat och kan inte kryssas ur. Ärvs nedåt; närmaste nivå vinner." },
-        "selected": { "type": "boolean", "description": "Förikryssat vid start men går att kryssa ur. Ärvs nedåt; närmaste nivå vinner." },
+        "name": { "type": "string", "description": "Logical group within the section." },
+        "required": { "type": "boolean", "description": "Required: always selected and cannot be deselected. Inherited downwards; the closest level wins." },
+        "selected": { "type": "boolean", "description": "Preselected at start but can be deselected. Inherited downwards; the closest level wins." },
         "pacman": { "$ref": "#/definitions/packages", "description": "sudo pacman -S --needed --noconfirm <flags> <name>" },
-        "paru": { "$ref": "#/definitions/packages", "description": "AUR via paru -S --needed --noconfirm <flags> <name>. Kräver paketet 'paru'." },
-        "flatpak": { "$ref": "#/definitions/packages", "description": "flatpak install -y flathub <flags> <app-id>. Kräver paketet 'flatpak'." },
-        "npm": { "$ref": "#/definitions/packages", "description": "sudo npm install -g <flags> <name>. Kräver paketet 'npm'." },
-        "cargo": { "$ref": "#/definitions/packages", "description": "cargo install --locked <flags> <crate>. Kräver paketet 'rust'." },
-        "uv": { "$ref": "#/definitions/packages", "description": "uv tool install <flags> <name>. Kräver paketet 'uv'." },
-        "dotnet": { "$ref": "#/definitions/packages", "description": "dotnet tool update -g <flags> <id>. Kräver paketet 'dotnet'." },
-        "script": { "$ref": "#/definitions/packages", "description": "Kör scripts/<namn>.sh (eller file) med bash -euo pipefail, cwd = configens katalog. Env: CONFIG_PATH (configens katalog), FILES (CONFIG_PATH/files). Körs en gång (markörfil)." }
+        "paru": { "$ref": "#/definitions/packages", "description": "AUR via paru -S --needed --noconfirm <flags> <name>. Requires the package 'paru'." },
+        "flatpak": { "$ref": "#/definitions/packages", "description": "flatpak install -y flathub <flags> <app-id>. Requires the package 'flatpak'." },
+        "npm": { "$ref": "#/definitions/packages", "description": "sudo npm install -g <flags> <name>. Requires the package 'npm'." },
+        "cargo": { "$ref": "#/definitions/packages", "description": "cargo install --locked <flags> <crate>. Requires the package 'rust'." },
+        "uv": { "$ref": "#/definitions/packages", "description": "uv tool install <flags> <name>. Requires the package 'uv'." },
+        "dotnet": { "$ref": "#/definitions/packages", "description": "dotnet tool update -g <flags> <id>. Requires the package 'dotnet'." },
+        "script": { "$ref": "#/definitions/packages", "description": "Runs scripts/<name>.sh (or file) with bash -euo pipefail, cwd = the config's directory. Env: CONFIG_PATH (the config's directory), FILES (CONFIG_PATH/files). Runs once (marker file)." }
       }
     },
     "packages": {
       "type": "array",
       "items": {
         "oneOf": [
-          { "type": "string", "description": "Paketnamn utan tillval." },
+          { "type": "string", "description": "Package name without options." },
           {
             "type": "object",
-            "description": "Paketnamn som nyckel, tillval som värde.",
+            "description": "Package name as key, options as value.",
             "minProperties": 1,
             "maxProperties": 1,
             "additionalProperties": {
@@ -69,15 +69,15 @@
       "type": "object",
       "additionalProperties": false,
       "properties": {
-        "flags": { "$ref": "#/definitions/strings", "description": "Extra flaggor till installationskommandot." },
-        "service": { "$ref": "#/definitions/strings", "description": "sudo systemctl enable --now <service> efter installation." },
-        "user_service": { "$ref": "#/definitions/strings", "description": "systemctl --user enable <service> efter installation." },
-        "post": { "$ref": "#/definitions/strings", "description": "Shell-kommandon som körs efter installation." },
-        "required": { "type": "boolean", "description": "Obligatoriskt: alltid ikryssat och kan inte kryssas ur. Ärvs nedåt; närmaste nivå vinner." },
-        "selected": { "type": "boolean", "description": "Förikryssat vid start men går att kryssa ur. Ärvs nedåt; närmaste nivå vinner." },
-        "always": { "type": "boolean", "description": "Endast script: kör varje gång paketet behövs, utan markörfil." },
-        "file": { "type": "string", "description": "Endast script: sökväg till scriptet, relativ till configen, absolut eller ~/. Default scripts/<namn>.sh. flags skickas som argument." },
-        "requires": { "$ref": "#/definitions/strings", "description": "Paket eller avsnitts-id som måste installeras först." }
+        "flags": { "$ref": "#/definitions/strings", "description": "Extra flags for the install command." },
+        "service": { "$ref": "#/definitions/strings", "description": "sudo systemctl enable --now <service> after installation." },
+        "user_service": { "$ref": "#/definitions/strings", "description": "systemctl --user enable <service> after installation." },
+        "post": { "$ref": "#/definitions/strings", "description": "Shell commands run after installation." },
+        "required": { "type": "boolean", "description": "Required: always selected and cannot be deselected. Inherited downwards; the closest level wins." },
+        "selected": { "type": "boolean", "description": "Preselected at start but can be deselected. Inherited downwards; the closest level wins." },
+        "always": { "type": "boolean", "description": "Script only: run every time the package is needed, without a marker file." },
+        "file": { "type": "string", "description": "Script only: path to the script, relative to the config, absolute or ~/. Defaults to scripts/<name>.sh. flags are passed as arguments." },
+        "requires": { "$ref": "#/definitions/strings", "description": "Packages or section ids that must be installed first." }
       }
     }
   }

@@ -114,10 +114,9 @@ impl<'de> Deserialize<'de> for Strings {
 
 impl Config {
     pub fn load(path: &Path) -> Result<Self> {
-        let text = std::fs::read_to_string(path)
-            .with_context(|| format!("kan inte läsa {}", path.display()))?;
-        let raw: RawConfig = serde_yaml_ng::from_str(&text)
-            .with_context(|| format!("ogiltig YAML i {}", path.display()))?;
+        let text = std::fs::read_to_string(path).with_context(|| format!("cannot read {}", path.display()))?;
+        let raw: RawConfig =
+            serde_yaml_ng::from_str(&text).with_context(|| format!("invalid YAML in {}", path.display()))?;
         Self::from_raw(raw)
     }
 
@@ -136,17 +135,20 @@ impl Config {
                             RawPackage::Name(n) => (n, Options::default()),
                             RawPackage::WithOptions(map) => {
                                 if map.len() != 1 {
-                                    bail!("paketposter med tillval måste ha exakt ett namn i gruppen '{}'", group.name);
+                                    bail!(
+                                        "package entries with options must have exactly one name in group '{}'",
+                                        group.name
+                                    );
                                 }
                                 let (name, opts) = map.into_iter().next().unwrap();
                                 (name, opts.unwrap_or_default())
                             }
                         };
                         if (opts.file.is_some() || opts.always.is_some()) && source != Source::Script {
-                            bail!("'{name}': file och always gäller bara script");
+                            bail!("'{name}': file and always only apply to script");
                         }
                         if by_name.insert(name.clone(), packages.len()).is_some() {
-                            bail!("paketet '{name}' finns flera gånger");
+                            bail!("package '{name}' is defined more than once");
                         }
                         let mut requires = opts.requires.0;
                         requires.extend(rs.requires.0.iter().cloned());
@@ -181,7 +183,7 @@ impl Config {
                 } else if let Some(si) = sections.iter().position(|s| s.id == name) {
                     reqs.extend(sections[si].groups.iter().flat_map(|g| g.packages.iter().copied()));
                 } else {
-                    bail!("'{}' kräver '{name}', som inte finns", packages[pi].name);
+                    bail!("'{}' requires '{name}', which does not exist", packages[pi].name);
                 }
             }
             if let Some(implicit) = packages[pi].source.implicit_requirement()
@@ -205,7 +207,7 @@ impl Config {
         let mut mark = vec![0u8; self.packages.len()];
         fn visit(cfg: &Config, i: usize, mark: &mut [u8]) -> Result<()> {
             match mark[i] {
-                1 => bail!("beroendecykel via '{}'", cfg.packages[i].name),
+                1 => bail!("dependency cycle via '{}'", cfg.packages[i].name),
                 2 => return Ok(()),
                 _ => {}
             }

@@ -36,9 +36,7 @@ impl InstalledState {
 
     pub fn is_installed(&self, pkg: &Package) -> bool {
         match pkg.source {
-            Source::Pacman | Source::Paru => {
-                self.packages.contains(&pkg.name) || self.groups.contains(&pkg.name)
-            }
+            Source::Pacman | Source::Paru => self.packages.contains(&pkg.name) || self.groups.contains(&pkg.name),
             Source::Flatpak => self.flatpaks.contains(&pkg.name),
             Source::Npm => self.npm.contains(&pkg.name),
             Source::Cargo => self.cargo.contains(&pkg.name),
@@ -56,9 +54,7 @@ impl InstalledState {
 }
 
 fn marker_dir() -> PathBuf {
-    let base = std::env::var_os("XDG_STATE_HOME")
-        .map(PathBuf::from)
-        .unwrap_or_else(|| home().join(".local/state"));
+    let base = std::env::var_os("XDG_STATE_HOME").map(PathBuf::from).unwrap_or_else(|| home().join(".local/state"));
     base.join("simplearchpackageinstaller")
 }
 

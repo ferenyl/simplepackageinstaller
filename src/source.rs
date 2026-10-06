@@ -69,10 +69,9 @@ pub fn install_command(pkg: &Package, config_dir: &Path) -> String {
         Source::Cargo => format!("cargo install --locked {flags} {name}"),
         Source::Uv => format!("uv tool install {flags} {name}"),
         Source::Dotnet => format!("{DOTNET} tool update -g {flags} {name}"),
-        Source::Script => format!(
-            "bash -euo pipefail {} {flags}",
-            shell_quote(&script_path(config_dir, pkg).to_string_lossy())
-        ),
+        Source::Script => {
+            format!("bash -euo pipefail {} {flags}", shell_quote(&script_path(config_dir, pkg).to_string_lossy()))
+        }
     };
     cmd.split_whitespace().collect::<Vec<_>>().join(" ")
 }
@@ -93,9 +92,9 @@ pub fn needs_sudo(pkg: &Package, config_dir: &Path) -> bool {
     let install = match pkg.source {
         Source::Pacman | Source::Paru | Source::Npm => true,
         Source::Flatpak | Source::Cargo | Source::Uv | Source::Dotnet => false,
-        Source::Script => std::fs::read_to_string(script_path(config_dir, pkg))
-            .map(|s| s.contains("sudo"))
-            .unwrap_or(false),
+        Source::Script => {
+            std::fs::read_to_string(script_path(config_dir, pkg)).map(|s| s.contains("sudo")).unwrap_or(false)
+        }
     };
     install || post_commands(pkg).iter().any(|c| c.contains("sudo"))
 }

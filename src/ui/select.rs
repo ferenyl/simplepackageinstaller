@@ -85,11 +85,7 @@ impl SelectView {
 
     fn packages_of(cfg: &Config, row: Row) -> Vec<usize> {
         match row {
-            Row::Section(si) => cfg.sections[si]
-                .groups
-                .iter()
-                .flat_map(|g| g.packages.iter().copied())
-                .collect(),
+            Row::Section(si) => cfg.sections[si].groups.iter().flat_map(|g| g.packages.iter().copied()).collect(),
             Row::Group(si, gi) => cfg.sections[si].groups[gi].packages.clone(),
             Row::Package(p) => vec![p],
         }
@@ -118,9 +114,7 @@ impl SelectView {
         match key.code {
             KeyCode::Char('q') | KeyCode::Esc => return Action::Quit,
             KeyCode::Up | KeyCode::Char('k') => self.list.select(Some(cursor.saturating_sub(1))),
-            KeyCode::Down | KeyCode::Char('j') => {
-                self.list.select(Some((cursor + 1).min(rows.len() - 1)))
-            }
+            KeyCode::Down | KeyCode::Char('j') => self.list.select(Some((cursor + 1).min(rows.len() - 1))),
             KeyCode::PageUp => self.list.select(Some(cursor.saturating_sub(15))),
             KeyCode::PageDown => self.list.select(Some((cursor + 15).min(rows.len() - 1))),
             KeyCode::Home | KeyCode::Char('g') => self.list.select(Some(0)),
@@ -157,15 +151,10 @@ impl SelectView {
     fn collapse(&mut self, rows: &[Row], cursor: usize) {
         match rows[cursor] {
             Row::Section(si) => self.expanded_sections[si] = false,
-            Row::Group(si, gi) if self.expanded_groups[si][gi] => {
-                self.expanded_groups[si][gi] = false
-            }
+            Row::Group(si, gi) if self.expanded_groups[si][gi] => self.expanded_groups[si][gi] = false,
             Row::Group(..) | Row::Package(_) => {
                 let parent = rows[..cursor].iter().rposition(|r| {
-                    matches!(
-                        (rows[cursor], r),
-                        (Row::Group(..), Row::Section(_)) | (Row::Package(_), Row::Group(..))
-                    )
+                    matches!((rows[cursor], r), (Row::Group(..), Row::Section(_)) | (Row::Package(_), Row::Group(..)))
                 });
                 if let Some(p) = parent {
                     self.list.select(Some(p));
@@ -183,17 +172,14 @@ impl SelectView {
             }
             let name = &cfg.packages[p].name;
             if self.required[p] {
-                self.notice = Some(format!("{name} är obligatoriskt och kan inte kryssas ur"));
+                self.notice = Some(format!("{name} is required and cannot be deselected"));
                 return;
             }
             let dependents = deps::required_by(cfg, &self.selected, &self.installed, p);
-            let locked: Vec<&str> = dependents
-                .iter()
-                .filter(|&&d| self.required[d])
-                .map(|&d| cfg.packages[d].name.as_str())
-                .collect();
+            let locked: Vec<&str> =
+                dependents.iter().filter(|&&d| self.required[d]).map(|&d| cfg.packages[d].name.as_str()).collect();
             if !locked.is_empty() {
-                self.notice = Some(format!("{name} krävs av obligatoriska paket: {}", locked.join(", ")));
+                self.notice = Some(format!("{name} is needed by required packages: {}", locked.join(", ")));
             } else if dependents.is_empty() {
                 self.selected[p] = false;
                 self.forced[p] = false;
@@ -204,7 +190,7 @@ impl SelectView {
         }
         let pkgs: Vec<usize> = pkgs.into_iter().filter(|&p| !self.required[p]).collect();
         if pkgs.is_empty() {
-            self.notice = Some("Alla paket här är obligatoriska".into());
+            self.notice = Some("All packages here are required".into());
             return;
         }
         let all = pkgs.iter().all(|&p| self.selected[p]);
@@ -219,18 +205,15 @@ impl SelectView {
     pub fn render(&mut self, cfg: &Config, frame: &mut Frame) {
         let effective = self.effective(cfg);
         let rows = self.rows(cfg);
-        let [list_area, info_area, help_area] = Layout::vertical([
-            Constraint::Min(5),
-            Constraint::Length(6),
-            Constraint::Length(1),
-        ])
-        .areas(frame.area());
+        let [list_area, info_area, help_area] =
+            Layout::vertical([Constraint::Min(5), Constraint::Length(6), Constraint::Length(1)]).areas(frame.area());
 
         let items: Vec<ListItem> = rows.iter().map(|&r| self.row_item(cfg, r, &effective)).collect();
         let user = self.selected.iter().filter(|&&s| s).count();
         let auto = effective.iter().zip(&self.selected).filter(|&(&e, &s)| e && !s).count();
-        let update = if self.system_update { "ja" } else { "nej" };
-        let title = format!(" simplearchpackageinstaller · {user} valda, +{auto} beroenden · systemuppdatering: {update} ");
+        let update = if self.system_update { "yes" } else { "no" };
+        let title =
+            format!(" simplearchpackageinstaller · {user} selected, +{auto} dependencies · system update: {update} ");
         let list = List::new(items)
             .block(Block::bordered().title(title.bold()))
             .highlight_style(Style::new().bg(Color::DarkGray).add_modifier(Modifier::BOLD));
@@ -246,22 +229,22 @@ impl SelectView {
             info_area,
         );
         frame.render_widget(
-            Line::from(" ↑↓ flytta  ←→ fäll  space välj  a alla  n inga  u uppdatering  R kör om  enter installera  q avsluta")
+            Line::from(" ↑↓ move  ←→ fold  space select  a all  n none  u update  R rerun  enter install  q quit")
                 .dim(),
             help_area,
         );
 
         if self.update_prompt {
             let text = vec![
-                Line::from("Uppdatera systemet (pacman -Syu) innan installationen?"),
-                Line::from("Rekommenderas, annars kan paket installeras mot inaktuella beroenden.").dim(),
+                Line::from("Update the system (pacman -Syu) before installing?"),
+                Line::from("Recommended, otherwise packages may be installed against outdated dependencies.").dim(),
                 Line::from(""),
-                Line::from("[j/enter] ja   [n] nej   (ändra senare med u)"),
+                Line::from("[y/enter] yes   [n] no   (change later with u)"),
             ];
             let area = centered(frame.area(), 64, 8);
             frame.render_widget(Clear, area);
             frame.render_widget(
-                Paragraph::new(text).wrap(Wrap { trim: true }).block(Block::bordered().title(" systemuppdatering ")),
+                Paragraph::new(text).wrap(Wrap { trim: true }).block(Block::bordered().title(" system update ")),
                 area,
             );
         }
@@ -269,15 +252,15 @@ impl SelectView {
         if let Some(confirm) = &self.confirm {
             let names: Vec<&str> = confirm.dependents.iter().map(|&d| cfg.packages[d].name.as_str()).collect();
             let text = vec![
-                Line::from(format!("{} krävs av:", cfg.packages[confirm.target].name)),
+                Line::from(format!("{} is needed by:", cfg.packages[confirm.target].name)),
                 Line::from(names.join(", ")).bold(),
                 Line::from(""),
-                Line::from("[j] kryssa ur dem också   [n] avbryt"),
+                Line::from("[y] deselect them too   [n] cancel"),
             ];
             let area = centered(frame.area(), 60, 7);
             frame.render_widget(Clear, area);
             frame.render_widget(
-                Paragraph::new(text).wrap(Wrap { trim: true }).block(Block::bordered().title(" krävs ")),
+                Paragraph::new(text).wrap(Wrap { trim: true }).block(Block::bordered().title(" required ")),
                 area,
             );
         }
@@ -318,13 +301,13 @@ impl SelectView {
                     Span::styled(format!("  {}", pkg.source.tag()), Style::new().fg(Color::Blue)),
                 ];
                 if self.required[p] {
-                    spans.push(Span::styled("  obligatorisk", Style::new().fg(Color::Red)));
+                    spans.push(Span::styled("  required", Style::new().fg(Color::Red)));
                 }
                 if self.forced[p] {
-                    spans.push(Span::styled("  ↻ kör om", Style::new().fg(Color::Magenta)));
+                    spans.push(Span::styled("  ↻ rerun", Style::new().fg(Color::Magenta)));
                 }
                 if self.installed[p] {
-                    spans.push(Span::raw("  (installerad)"));
+                    spans.push(Span::raw("  (installed)"));
                     return ListItem::new(Line::from(spans).dim());
                 }
                 ListItem::new(Line::from(spans))
@@ -349,30 +332,30 @@ impl SelectView {
         let Row::Package(p) = row else {
             let pkgs = Self::packages_of(cfg, row);
             let installed = pkgs.iter().filter(|&&p| self.installed[p]).count();
-            return vec![Line::from(format!("{} paket, {installed} redan installerade", pkgs.len()))];
+            return vec![Line::from(format!("{} packages, {installed} already installed", pkgs.len()))];
         };
         let pkg = &cfg.packages[p];
         let mut lines = vec![Line::from(vec![
             Span::raw(pkg.name.clone()).bold(),
-            Span::raw(format!("  källa: {}", pkg.source.tag())),
+            Span::raw(format!("  source: {}", pkg.source.tag())),
         ])];
         let mut field = |label: &str, values: &[String]| {
             if !values.is_empty() {
                 lines.push(Line::from(format!("{label}: {}", values.join(", "))));
             }
         };
-        field("flaggor", &pkg.flags);
-        field("tjänster", &pkg.service);
-        field("user-tjänster", &pkg.user_service);
+        field("flags", &pkg.flags);
+        field("services", &pkg.service);
+        field("user services", &pkg.user_service);
         field("post", &pkg.post);
         let requires: Vec<String> = pkg.requires.iter().map(|&r| cfg.packages[r].name.clone()).collect();
-        field("kräver", &requires);
+        field("requires", &requires);
         if effective[p] && !self.selected[p] {
             let by: Vec<String> = deps::required_by(cfg, &self.selected, &self.installed, p)
                 .into_iter()
                 .map(|d| cfg.packages[d].name.clone())
                 .collect();
-            field("krävs av", &by);
+            field("required by", &by);
         }
         if pkg.source == source::Source::Script {
             lines.push(Line::from(format!("script: {}", pkg.script_file())).dim());

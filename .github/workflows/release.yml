@@ -1,8 +1,8 @@
 name: Release
 
 on:
-  push:
-    tags: ['v*']
+  release:
+    types: [published]
 
 permissions:
   contents: write
@@ -10,6 +10,7 @@ permissions:
 env:
   CARGO_TERM_COLOR: always
   TARGET: x86_64-unknown-linux-musl
+  TAG: ${{ github.event.release.tag_name }}
 
 jobs:
   release:
@@ -17,34 +18,49 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
+          ref: ${{ github.event.release.tag_name }}
           fetch-depth: 0
 
       - name: Ensure tag is on main
         run: |
           git fetch origin main
-          git merge-base --is-ancestor "$GITHUB_SHA" origin/main \
-            || { echo "Tag $GITHUB_REF_NAME is not on main"; exit 1; }
+          git merge-base --is-ancestor HEAD origin/main \
+            || { echo "Tag $TAG is not on main"; exit 1; }
+
+      - name: Set version from tag
+        run: |
+          version="${TAG#v}"
+          if ! [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?(\+[0-9A-Za-z.-]+)?$ ]]; then
+            echo "Tag $TAG is not a semver version (e.g. v1.2.3)"; exit 1
+          fi
+          sed -i "0,/^version = .*/s//version = \"$version\"/" Cargo.toml
+          echo "VERSION=$version" >> "$GITHUB_ENV"
 
       - uses: dtolnay/rust-toolchain@stable
         with:
           targets: ${{ env.TARGET }}
       - uses: Swatinem/rust-cache@v2
       - run: sudo apt-get update && sudo apt-get install -y musl-tools
-      - run: cargo build --release --locked --target "$TARGET"
+      - run: cargo build --release --target "$TARGET"
+
+      - name: Verify binary version
+        run: |
+          out="$(target/$TARGET/release/simplearchpackageinstaller --version)"
+          echo "$out"
+          [ "$out" = "simplearchpackageinstaller $VERSION" ]
 
       - name: Package
         run: |
-          name="simplearchpackageinstaller-${GITHUB_REF_NAME}-${TARGET}"
+          name="simplearchpackageinstaller-${VERSION}-${TARGET}"
           mkdir "$name"
           cp "target/$TARGET/release/simplearchpackageinstaller" packages.schema.json README.md "$name/"
           tar czf "$name.tar.gz" "$name"
           cp "target/$TARGET/release/simplearchpackageinstaller" simplearchpackageinstaller
           sha256sum "$name.tar.gz" simplearchpackageinstaller > SHA256SUMS
 
-      - uses: softprops/action-gh-release@v2
-        with:
-          generate_release_notes: true
-          files: |
-            simplearchpackageinstaller-*.tar.gz
-            simplearchpackageinstaller
-            SHA256SUMS
+      - name: Upload to release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release upload "$TAG" --clobber \
+            simplearchpackageinstaller-*.tar.gz simplearchpackageinstaller SHA256SUMS

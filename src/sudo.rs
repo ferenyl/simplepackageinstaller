@@ -28,9 +28,11 @@ pub fn validate(password: &str) -> bool {
 pub fn start_keepalive() {
     static START: Once = Once::new();
     START.call_once(|| {
-        std::thread::spawn(|| loop {
-            std::thread::sleep(Duration::from_secs(60));
-            quiet(Command::new("sudo").args(["-n", "-v"]));
+        std::thread::spawn(|| {
+            loop {
+                std::thread::sleep(Duration::from_secs(60));
+                quiet(Command::new("sudo").args(["-n", "-v"]));
+            }
         });
     });
 }
@@ -53,10 +55,5 @@ pub fn write_shim(dir: &Path) -> std::io::Result<()> {
 }
 
 fn quiet(cmd: &mut Command) -> bool {
-    cmd.stdin(Stdio::null())
-        .stdout(Stdio::null())
-        .stderr(Stdio::null())
-        .status()
-        .map(|s| s.success())
-        .unwrap_or(false)
+    cmd.stdin(Stdio::null()).stdout(Stdio::null()).stderr(Stdio::null()).status().map(|s| s.success()).unwrap_or(false)
 }

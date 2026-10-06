@@ -19,21 +19,25 @@ fn main() -> Result<()> {
     while let Some(arg) = args.next() {
         match arg.as_str() {
             "--dry-run" => dry_run = true,
-            "--config" => config_path = Some(PathBuf::from(args.next().context("--config kräver en sökväg")?)),
+            "--config" => config_path = Some(PathBuf::from(args.next().context("--config requires a path")?)),
             "-h" | "--help" => {
-                println!("simplearchpackageinstaller [--config packages.yaml] [--dry-run]");
+                println!("simplearchpackageinstaller [--config packages.yaml] [--dry-run] [--version]");
                 return Ok(());
             }
-            other => bail!("okänt argument: {other}"),
+            "-V" | "--version" => {
+                println!("simplearchpackageinstaller {}", env!("CARGO_PKG_VERSION"));
+                return Ok(());
+            }
+            other => bail!("unknown argument: {other}"),
         }
     }
 
     let config_path = match config_path {
         Some(p) => p,
-        None => find_config().context("hittar inte packages.yaml, ange --config")?,
+        None => find_config().context("packages.yaml not found, use --config")?,
     };
     let config_path = config_path.canonicalize()?;
-    let config_dir = config_path.parent().context("config saknar katalog")?.to_path_buf();
+    let config_dir = config_path.parent().context("config has no parent directory")?.to_path_buf();
     let cfg = Config::load(&config_path)?;
 
     let _sudo = sudo::Session;
