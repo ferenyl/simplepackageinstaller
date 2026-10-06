@@ -14,10 +14,24 @@ pub enum Outcome {
     Cancelled,
 }
 
-#[derive(Default)]
+/// Fixed so the buffer never reallocates and leaves copies of the password behind.
+const CAPACITY: usize = 256;
+
 pub struct PasswordPrompt {
     input: String,
     error: Option<&'static str>,
+}
+
+impl Default for PasswordPrompt {
+    fn default() -> Self {
+        Self { input: String::with_capacity(CAPACITY), error: None }
+    }
+}
+
+impl Drop for PasswordPrompt {
+    fn drop(&mut self) {
+        self.wipe();
+    }
 }
 
 impl PasswordPrompt {
@@ -39,16 +53,26 @@ impl PasswordPrompt {
             KeyCode::Backspace => {
                 self.input.pop();
             }
-            KeyCode::Char(c) => self.input.push(c),
+            KeyCode::Char(c) if self.input.len() + c.len_utf8() <= self.input.capacity() => {
+                self.input.push(c)
+            }
             _ => {}
         }
         Outcome::Pending
     }
 
+    /// Zeroes the whole allocation, including bytes left behind by backspace.
     fn wipe(&mut self) {
-        let len = self.input.len();
-        self.input.replace_range(.., &"\0".repeat(len));
-        self.input.clear();
+        // SAFETY: only u8 zeros are written within the allocation, and the string is cleared afterwards.
+        unsafe {
+            let bytes = self.input.as_mut_vec();
+            let ptr = bytes.as_mut_ptr();
+            for i in 0..bytes.capacity() {
+                std::ptr::write_volatile(ptr.add(i), 0);
+            }
+            bytes.clear();
+        }
+        std::sync::atomic::compiler_fence(std::sync::atomic::Ordering::SeqCst);
     }
 
     pub fn render(&self, frame: &mut Frame) {

@@ -260,6 +260,19 @@ All commands run without a terminal (stdin is closed), so they must not prompt:
 - `sudo` is wrapped with `sudo -n` via a shim in `PATH`; the password entered in the TUI is cached and kept alive for the whole run.
 - Git never prompts for credentials (`GIT_TERMINAL_PROMPT=0`) and new SSH host keys are accepted automatically.
 
+## Security
+
+> [!WARNING]
+> **Only use configs you trust.** Once the sudo password has been entered, every `script`, `post` and `service` step can run `sudo` without asking. A config is effectively code that runs as root.
+
+How the sudo password is handled:
+
+- It is only written to `sudo -S -v` over stdin. It never appears in command-line arguments, environment variables, logs or on disk, and is masked in the UI.
+- `sudo -v` only validates the password and caches sudo's timestamp; child processes use that cache through the `sudo -n` shim and never see the password.
+- The input buffer has a fixed capacity (so it never reallocates and leaves copies behind) and is zeroed after use.
+- While running, the sudo timestamp is kept alive for the whole terminal session, not just for the installer's own jobs.
+- On exit — including `q`, Ctrl-C, errors and panics — `sudo -k` is run to invalidate the cached credentials. This also clears any sudo cache you had in that terminal before starting.
+
 ## Files
 
 | Path | Contents |

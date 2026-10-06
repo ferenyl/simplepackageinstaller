@@ -36,6 +36,7 @@ fn main() -> Result<()> {
     let config_dir = config_path.parent().context("config saknar katalog")?.to_path_buf();
     let cfg = Config::load(&config_path)?;
 
+    let _sudo = sudo::Session;
     let mut terminal = ratatui::init();
     let result = ui::App::new(cfg, config_dir, dry_run).run(&mut terminal);
     ratatui::restore();

@@ -35,6 +35,15 @@ pub fn start_keepalive() {
     });
 }
 
+/// Invalidates the cached sudo credentials when dropped, including on panic.
+pub struct Session;
+
+impl Drop for Session {
+    fn drop(&mut self) {
+        quiet(Command::new("sudo").arg("-k"));
+    }
+}
+
 /// A `sudo` wrapper placed first in PATH so child processes never prompt on the TUI's terminal.
 pub fn write_shim(dir: &Path) -> std::io::Result<()> {
     std::fs::create_dir_all(dir)?;
