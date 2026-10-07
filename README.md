@@ -236,6 +236,7 @@ The same package may be listed in several places (e.g. `rust` both as a dependen
 | `post` | string or list | Shell commands run after install. |
 | `requires` | string or list | Packages or section ids that must be installed first. |
 | `required` / `selected` | bool | As for sections. The closest level wins: package → group → section. |
+| `sudo` | bool | Whether the package needs sudo. Overrides detection (source, or `sudo` in the script/post commands), e.g. for a script that runs `makepkg -si`. |
 | `file` | string | Script only. Path to the script: relative to the config, absolute, or `~/…`. Default `scripts/<name>.sh`. |
 | `always` | bool | Script only. Run every time instead of once. |
 

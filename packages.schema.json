@@ -81,6 +81,7 @@
         "post": { "$ref": "#/definitions/strings", "description": "Shell commands run after installation." },
         "required": { "type": "boolean", "description": "Required: always selected and cannot be deselected. Inherited downwards; the closest level wins." },
         "selected": { "type": "boolean", "description": "Preselected at start but can be deselected. Inherited downwards; the closest level wins." },
+        "sudo": { "type": "boolean", "description": "Whether sudo is needed (asks for the password before it runs). Overrides detection from the source and from 'sudo' in the script/post commands." },
         "always": { "type": "boolean", "description": "Script only: run every time the package is needed, without a marker file." },
         "file": { "type": "string", "description": "Script only: path to the script, relative to the config, absolute or ~/. Defaults to scripts/<name>.sh. flags are passed as arguments." },
         "requires": { "$ref": "#/definitions/strings", "description": "Packages or section ids that must be installed first." }

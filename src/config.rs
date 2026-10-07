@@ -51,6 +51,8 @@ pub struct Package {
     pub required: bool,
     pub selected: bool,
     pub always: bool,
+    /// Overrides whether sudo is needed; detected from the source and commands when unset.
+    pub sudo: Option<bool>,
     file: Option<String>,
 }
 
@@ -126,6 +128,7 @@ struct Options {
     selected: Option<bool>,
     file: Option<String>,
     always: Option<bool>,
+    sudo: Option<bool>,
 }
 
 #[derive(Default)]
@@ -218,6 +221,7 @@ impl Config {
                                     required: false,
                                     selected: false,
                                     always: false,
+                                    sudo: None,
                                     file: None,
                                 });
                                 packages.len() - 1
@@ -233,6 +237,7 @@ impl Config {
                             pkg.user_service = opts.user_service.0;
                             pkg.post = opts.post.0;
                             pkg.always = opts.always.unwrap_or(false);
+                            pkg.sudo = opts.sudo;
                             pkg.file = opts.file;
                             pending_requires[i].extend(opts.requires.0);
                         }

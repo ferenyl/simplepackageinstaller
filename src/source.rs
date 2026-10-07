@@ -89,6 +89,9 @@ pub fn post_commands(pkg: &Package) -> Vec<String> {
 }
 
 pub fn needs_sudo(pkg: &Package, config_dir: &Path) -> bool {
+    if let Some(sudo) = pkg.sudo {
+        return sudo;
+    }
     let install = match pkg.source {
         Source::Pacman | Source::Paru | Source::Npm => true,
         Source::Flatpak | Source::Cargo | Source::Uv | Source::Dotnet => false,
