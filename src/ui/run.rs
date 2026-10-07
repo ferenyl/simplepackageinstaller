@@ -144,10 +144,7 @@ impl RunView {
             let mut selected_row = 0;
             for (i, (job, &s)) in self.jobs.iter().zip(&self.status).enumerate() {
                 if i == 0 || self.jobs[i - 1].group != job.group {
-                    items.push(ListItem::new(Line::styled(
-                        job.group.clone(),
-                        Style::new().bold().fg(Color::Cyan),
-                    )));
+                    items.push(ListItem::new(Line::styled(job.group.clone(), Style::new().bold().fg(Color::Cyan))));
                 }
                 if i == selected {
                     selected_row = items.len();

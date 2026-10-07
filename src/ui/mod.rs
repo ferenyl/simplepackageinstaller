@@ -103,9 +103,7 @@ impl App {
                 tag: pkg.source.tag(),
                 name: pkg.name.clone(),
                 group: self.cfg.location(step.root),
-                note: step
-                    .pulled_by
-                    .map(|d| format!("{}, for {}", self.cfg.location(p), self.cfg.packages[d].name)),
+                note: step.pulled_by.map(|d| format!("{}, for {}", self.cfg.location(p), self.cfg.packages[d].name)),
                 deps: self.cfg.requirements(p).filter_map(job_of).collect(),
                 skip: view.installed[p] && !view.forced[p],
                 needs_sudo: source::needs_sudo(pkg, &self.config_dir),
