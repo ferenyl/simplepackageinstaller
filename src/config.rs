@@ -333,6 +333,16 @@ impl Config {
         Ok(cfg)
     }
 
+    /// "Section › Group" where the package is first listed.
+    pub fn location(&self, p: usize) -> String {
+        self.sections
+            .iter()
+            .flat_map(|s| s.groups.iter().map(move |g| (s, g)))
+            .find(|(_, g)| g.packages.contains(&p))
+            .map(|(s, g)| format!("{} › {}", s.name, g.name))
+            .unwrap_or_default()
+    }
+
     /// Direct requirements plus every alternative of each required choice.
     pub fn requirements(&self, i: usize) -> impl Iterator<Item = usize> + '_ {
         let pkg = &self.packages[i];

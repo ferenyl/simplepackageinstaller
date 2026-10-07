@@ -13,6 +13,7 @@ use ratatui::layout::Rect;
 use ratatui::{DefaultTerminal, Frame};
 
 use crate::config::Config;
+use crate::deps::Step;
 use crate::runner::{self, CancelFlags, Context, Job};
 use crate::source::{self, Source};
 use crate::state::{self, InstalledState};
@@ -75,16 +76,18 @@ impl App {
         }
     }
 
-    fn start(&mut self, order: Vec<usize>) {
+    fn start(&mut self, steps: Vec<Step>) {
         let Screen::Select(view) = &self.screen else { return };
         let update = view.system_update;
         let offset = usize::from(update);
-        let job_of = |p: usize| order.iter().position(|&o| o == p).map(|j| j + offset);
+        let job_of = |p: usize| steps.iter().position(|s| s.pkg == p).map(|j| j + offset);
         let mut jobs: Vec<Job> = Vec::new();
         if update {
             jobs.push(Job {
                 tag: "pacman",
                 name: "System update".into(),
+                group: "System".into(),
+                note: None,
                 deps: Vec::new(),
                 skip: false,
                 needs_sudo: true,
@@ -93,11 +96,16 @@ impl App {
                 marker: None,
             });
         }
-        jobs.extend(order.iter().map(|&p| {
+        jobs.extend(steps.iter().map(|step| {
+            let p = step.pkg;
             let pkg = &self.cfg.packages[p];
             Job {
                 tag: pkg.source.tag(),
                 name: pkg.name.clone(),
+                group: self.cfg.location(step.root),
+                note: step
+                    .pulled_by
+                    .map(|d| format!("{}, for {}", self.cfg.location(p), self.cfg.packages[d].name)),
                 deps: self.cfg.requirements(p).filter_map(job_of).collect(),
                 skip: view.installed[p] && !view.forced[p],
                 needs_sudo: source::needs_sudo(pkg, &self.config_dir),

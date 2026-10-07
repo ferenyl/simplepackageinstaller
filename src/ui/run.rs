@@ -19,6 +19,8 @@ pub struct RunView {
     reasons: Vec<Option<String>>,
     logs: Vec<Vec<String>>,
     list: ListState,
+    /// Selected job; the list also has heading rows.
+    cursor: usize,
     follow: bool,
     fullscreen: bool,
     scroll: usize,
@@ -44,7 +46,8 @@ impl RunView {
             status: vec![Status::Pending; n],
             reasons: vec![None; n],
             logs: vec![Vec::new(); n],
-            list: ListState::default().with_selected(Some(0)),
+            list: ListState::default(),
+            cursor: 0,
             follow: true,
             fullscreen: false,
             scroll: 0,
@@ -63,7 +66,7 @@ impl RunView {
                 Event::Started(i) => {
                     self.status[i] = Status::Running;
                     if self.follow {
-                        self.list.select(Some(i));
+                        self.cursor = i;
                         self.scroll = 0;
                     }
                 }
@@ -94,7 +97,7 @@ impl RunView {
             }
             return false;
         }
-        let cursor = self.list.selected().unwrap_or(0);
+        let cursor = self.cursor;
         let last = self.jobs.len().saturating_sub(1);
         match key.code {
             KeyCode::Char('q') | KeyCode::Esc if self.done => return true,
@@ -103,7 +106,7 @@ impl RunView {
             KeyCode::Char('f') => {
                 self.follow = true;
                 if let Some(i) = self.status.iter().position(|&s| s == Status::Running) {
-                    self.list.select(Some(i));
+                    self.cursor = i;
                 }
             }
             KeyCode::Char('c') if !self.status[cursor].is_finished() => {
@@ -125,24 +128,31 @@ impl RunView {
     fn select(&mut self, i: usize) {
         self.follow = false;
         self.scroll = 0;
-        self.list.select(Some(i));
+        self.cursor = i;
     }
 
     pub fn render(&mut self, frame: &mut Frame) {
         let [main, help] = Layout::vertical([Constraint::Min(5), Constraint::Length(1)]).areas(frame.area());
-        let selected = self.list.selected().unwrap_or(0);
+        let selected = self.cursor;
 
         if self.fullscreen {
             self.render_log(frame, main, selected);
         } else {
             let [list_area, log_area] =
                 Layout::vertical([Constraint::Percentage(55), Constraint::Percentage(45)]).areas(main);
-            let items: Vec<ListItem> = self
-                .jobs
-                .iter()
-                .zip(&self.status)
-                .enumerate()
-                .map(|(i, (job, &s))| {
+            let mut items: Vec<ListItem> = Vec::new();
+            let mut selected_row = 0;
+            for (i, (job, &s)) in self.jobs.iter().zip(&self.status).enumerate() {
+                if i == 0 || self.jobs[i - 1].group != job.group {
+                    items.push(ListItem::new(Line::styled(
+                        job.group.clone(),
+                        Style::new().bold().fg(Color::Cyan),
+                    )));
+                }
+                if i == selected {
+                    selected_row = items.len();
+                }
+                items.push({
                     let (icon, color, label) = describe(s);
                     let label = match &self.reasons[i] {
                         Some(reason) => format!("{label}: {reason}"),
@@ -151,14 +161,19 @@ impl RunView {
                         }
                         None => label.to_string(),
                     };
-                    ListItem::new(Line::from(vec![
-                        Span::styled(format!(" {icon} "), Style::new().fg(color)),
+                    let mut spans = vec![
+                        Span::styled(format!("   {icon} "), Style::new().fg(color)),
                         Span::raw(job.name.clone()),
                         Span::styled(format!("  {}", job.tag), Style::new().fg(Color::Blue)),
-                        Span::styled(format!("  {label}"), Style::new().fg(color)),
-                    ]))
-                })
-                .collect();
+                    ];
+                    if let Some(note) = &job.note {
+                        spans.push(Span::raw(format!("  ({note})")).dim());
+                    }
+                    spans.push(Span::styled(format!("  {label}"), Style::new().fg(color)));
+                    ListItem::new(Line::from(spans))
+                });
+            }
+            self.list.select(Some(selected_row));
             let list = List::new(items)
                 .block(Block::bordered().title(self.title().bold()))
                 .highlight_style(Style::new().bg(Color::DarkGray).add_modifier(Modifier::BOLD));

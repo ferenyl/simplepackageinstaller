@@ -36,6 +36,10 @@ impl Status {
 pub struct Job {
     pub tag: &'static str,
     pub name: String,
+    /// Heading the job is listed under.
+    pub group: String,
+    /// Extra context, e.g. why it runs ahead of its own group.
+    pub note: Option<String>,
     pub deps: Vec<usize>,
     pub skip: bool,
     pub needs_sudo: bool,

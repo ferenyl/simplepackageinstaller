@@ -36,24 +36,34 @@ pub fn required_by(cfg: &Config, selected: &[bool], installed: &[bool], target: 
         .collect()
 }
 
+/// A package in install order, with where it runs.
+pub struct Step {
+    pub pkg: usize,
+    /// The package whose config position this step runs at.
+    pub root: usize,
+    /// Set when the package was moved ahead of its own position for this dependent.
+    pub pulled_by: Option<usize>,
+}
+
 /// Config order, with each package's requirements installed right before the first package that needs them.
-pub fn order(cfg: &Config, effective: &[bool]) -> Vec<usize> {
-    fn place(cfg: &Config, effective: &[bool], i: usize, placed: &mut [bool], result: &mut Vec<usize>) {
-        if placed[i] {
+pub fn order(cfg: &Config, effective: &[bool]) -> Vec<Step> {
+    fn place(cfg: &Config, effective: &[bool], step: Step, placed: &mut [bool], result: &mut Vec<Step>) {
+        if placed[step.pkg] {
             return;
         }
-        placed[i] = true;
-        for r in cfg.requirements(i) {
+        placed[step.pkg] = true;
+        for r in cfg.requirements(step.pkg) {
             if effective[r] {
-                place(cfg, effective, r, placed, result);
+                let dep = Step { pkg: r, root: step.root, pulled_by: Some(step.pkg) };
+                place(cfg, effective, dep, placed, result);
             }
         }
-        result.push(i);
+        result.push(step);
     }
     let mut placed = vec![false; effective.len()];
     let mut result = Vec::new();
     for i in (0..effective.len()).filter(|&i| effective[i]) {
-        place(cfg, effective, i, &mut placed, &mut result);
+        place(cfg, effective, Step { pkg: i, root: i, pulled_by: None }, &mut placed, &mut result);
     }
     result
 }

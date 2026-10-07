@@ -60,7 +60,7 @@ Run it as your normal user, **not** as root. It asks for your sudo password once
 
 1. On start you are asked whether to run a full system update first (recommended).
 2. Select what to install. Already installed packages are marked `(installed)`; required packages cannot be unchecked; dependencies pulled in automatically are shown as `[+]`. Alternatives in a [choice](#choices) are shown as `( )` / `(•)`. Section and group rows show how many packages will be installed, e.g. `3 of 12`; a choice counts as one.
-3. Press `enter` to start. Packages are installed in config order; a package's requirements are installed right before the first package that needs them. If a package fails or is cancelled, everything that depends on it fails with `<package> not installed`.
+3. Press `enter` to start. Packages are installed in config order; a package's requirements are installed right before the first package that needs them. If a package fails or is cancelled, everything that depends on it fails with `<package> not installed`. The install list is grouped under `Section › Group` headings in run order; a requirement moved ahead is listed where it runs, with its own group and the package it is for, e.g. `rust (Utveckling › Språk, for paru)`.
 4. When done, the status of each package is shown along with the path to the log file.
 
 ### Keys — selection screen

@@ -15,7 +15,7 @@ use super::centered;
 pub enum Action {
     None,
     Quit,
-    Start(Vec<usize>),
+    Start(Vec<deps::Step>),
 }
 
 #[derive(Clone, Copy)]
