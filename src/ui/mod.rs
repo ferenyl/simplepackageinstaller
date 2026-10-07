@@ -97,7 +97,7 @@ impl App {
             Job {
                 tag: pkg.source.tag(),
                 name: pkg.name.clone(),
-                deps: pkg.requires.iter().filter_map(|&r| job_of(r)).collect(),
+                deps: self.cfg.requirements(p).filter_map(job_of).collect(),
                 skip: view.installed[p] && !view.forced[p],
                 needs_sudo: source::needs_sudo(pkg, &self.config_dir),
                 install: source::install_command(pkg, &self.config_dir),

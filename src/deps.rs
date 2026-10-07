@@ -5,7 +5,16 @@ pub fn closure(cfg: &Config, selected: &[bool], installed: &[bool]) -> Vec<bool>
     let mut effective = selected.to_vec();
     let mut stack: Vec<usize> = (0..selected.len()).filter(|&i| selected[i]).collect();
     while let Some(i) = stack.pop() {
-        for &r in &cfg.packages[i].requires {
+        let pkg = &cfg.packages[i];
+        // A required choice is met by any chosen or installed alternative, otherwise by its first.
+        let picks: Vec<usize> = pkg
+            .requires_choice
+            .iter()
+            .map(|&c| &cfg.choices[c].packages)
+            .filter(|members| !members.iter().any(|&m| effective[m] || installed[m]))
+            .map(|members| members[0])
+            .collect();
+        for r in pkg.requires.iter().copied().chain(picks) {
             if !effective[r] && !installed[r] {
                 effective[r] = true;
                 stack.push(r);
@@ -35,7 +44,7 @@ pub fn order(cfg: &Config, effective: &[bool]) -> Vec<usize> {
     while result.len() < wanted {
         let next = (0..effective.len())
             .find(|&i| {
-                effective[i] && !placed[i] && cfg.packages[i].requires.iter().all(|&r| !effective[r] || placed[r])
+                effective[i] && !placed[i] && cfg.requirements(i).all(|r| !effective[r] || placed[r])
             })
             .expect("cycles are rejected when the config is loaded");
         placed[next] = true;

@@ -59,7 +59,7 @@ Run it as your normal user, **not** as root. It asks for your sudo password once
 ### Workflow
 
 1. On start you are asked whether to run a full system update first (recommended).
-2. Select what to install. Already installed packages are marked `(installed)`; required packages cannot be unchecked; dependencies pulled in automatically are shown as `[+]`.
+2. Select what to install. Already installed packages are marked `(installed)`; required packages cannot be unchecked; dependencies pulled in automatically are shown as `[+]`. Alternatives in a [choice](#choices) are shown as `( )` / `(•)`.
 3. Press `enter` to start. Packages are installed in dependency order. If a package fails, everything that depends on it is skipped.
 4. When done, the status of each package is shown along with the path to the log file.
 
@@ -71,7 +71,7 @@ Run it as your normal user, **not** as root. It asks for your sudo password once
 | `PgUp` `PgDn`, `Home`/`g`, `End`/`G` | Jump |
 | `→` / `l`, `←` / `h` | Expand / collapse section or group |
 | `space` | Toggle the item (whole section/group on a header row) |
-| `a` / `n` | Select all / select none (except required) |
+| `a` / `n` | Select all / select none (except required); one alternative per choice |
 | `u` | Toggle system update |
 | `R` | Force re-run of an already installed package |
 | `enter` | Start installation |
@@ -119,10 +119,13 @@ sections:
         pacman:
           - base-devel
           - git
-          - rust
           - flatpak
+      - name: AUR helper
+        choice: paru        # pick one; requiring "paru" is met by either
         script:
-          - paru            # runs scripts/paru.sh once
+          - paru-bin
+          - paru:           # runs scripts/paru.sh once
+              requires: rust
 
   - name: Desktop
     selected: true
@@ -148,6 +151,8 @@ sections:
         flatpak:
           - com.jetbrains.Rider
       - name: CLI
+        pacman:
+          - rust            # same package as paru's requirement
         cargo:
           - ripgrep
           - cargo-watch:
@@ -180,6 +185,7 @@ sections:
 | `required` | bool | Always selected; cannot be unchecked. Inherited downwards. |
 | `selected` | bool | Preselected, but can be unchecked. Inherited downwards. |
 | `requires` | string or list | Packages or section ids that every package in the section requires. |
+| `choice` | bool or string | Pick one of the section's packages. See [Choices](#choices). |
 
 ### Groups
 
@@ -187,9 +193,26 @@ sections:
 | --- | --- | --- |
 | `name` | string | Group name. |
 | `required` / `selected` | bool | As for sections. |
+| `choice` | bool or string | Pick one of the group's packages. See [Choices](#choices). |
 | `pacman`, `paru`, `flatpak`, `npm`, `cargo`, `uv`, `dotnet`, `script` | list | Packages per source. |
 
 Within a group, packages are installed in the source order listed above (pacman first, script last), subject to dependencies.
+
+### Choices
+
+With `choice` on a section or group, at most one of its packages can be selected; selecting one unchecks the others. With `required`, exactly one is always selected: an installed alternative, else one marked `selected`, else the first.
+
+```yaml
+- name: Editor
+  required: true
+  choice: neovim
+  pacman: [neovim]
+  paru: [neovim-git]
+```
+
+A string value is a base name. Requiring it — with `requires` or as a source's implicit requirement (e.g. `paru` for AUR packages) — is met by whichever alternative is chosen or installed; if none is, the first is pulled in. `choice: true` makes a choice without a base name. A section id in `requires` counts each choice in it as one requirement.
+
+`choice` cannot be set on both a section and one of its groups, and a package can only be part of one choice.
 
 ### Packages
 
@@ -203,7 +226,7 @@ pacman:
       post: sudo usermod -aG docker "$USER"
 ```
 
-Package names must be unique across the whole config.
+The same package may be listed in several places (e.g. `rust` both as a dependency in Base and under Development). It is one package: selecting it anywhere selects it everywhere. It must use the same source everywhere, and options may only be given on one of the occurrences. `required` / `selected` from any occurrence apply.
 
 | Option | Type | Description |
 | --- | --- | --- |
@@ -229,7 +252,7 @@ Package names must be unique across the whole config.
 | `dotnet` | `dotnet tool update -g <flags> <id>` | `dotnet` | `dotnet tool list -g` |
 | `script` | `bash -euo pipefail <file> <flags>` | — | marker file, or a pacman package with the same name |
 
-"Implicitly requires" only applies if a package with that name exists in the config.
+"Implicitly requires" only applies if a package or choice base name with that name exists in the config.
 
 ### Scripts
 

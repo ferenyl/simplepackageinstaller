@@ -18,6 +18,10 @@
         { "type": "array", "items": { "type": "string" } }
       ]
     },
+    "choice": {
+      "oneOf": [{ "type": "boolean" }, { "type": "string" }],
+      "description": "Only one of the packages here can be selected; with required, exactly one. A string is a base name: requiring it (or the implicit requirement of a source, e.g. paru) is met by whichever alternative is chosen."
+    },
     "section": {
       "type": "object",
       "required": ["name", "groups"],
@@ -27,6 +31,7 @@
         "required": { "type": "boolean", "description": "Required: always selected and cannot be deselected. Inherited downwards; the closest level wins." },
         "selected": { "type": "boolean", "description": "Preselected at start but can be deselected. Inherited downwards; the closest level wins." },
         "requires": { "$ref": "#/definitions/strings", "description": "Packages or section ids required by every package in the section." },
+        "choice": { "$ref": "#/definitions/choice" },
         "groups": { "type": "array", "items": { "$ref": "#/definitions/group" } }
       }
     },
@@ -38,6 +43,7 @@
         "name": { "type": "string", "description": "Logical group within the section." },
         "required": { "type": "boolean", "description": "Required: always selected and cannot be deselected. Inherited downwards; the closest level wins." },
         "selected": { "type": "boolean", "description": "Preselected at start but can be deselected. Inherited downwards; the closest level wins." },
+        "choice": { "$ref": "#/definitions/choice" },
         "pacman": { "$ref": "#/definitions/packages", "description": "sudo pacman -S --needed --noconfirm <flags> <name>" },
         "paru": { "$ref": "#/definitions/packages", "description": "AUR via paru -S --needed --noconfirm <flags> <name>. Requires the package 'paru'." },
         "flatpak": { "$ref": "#/definitions/packages", "description": "flatpak install -y flathub <flags> <app-id>. Requires the package 'flatpak'." },

@@ -5,7 +5,7 @@ use ratatui::style::{Color, Modifier, Style, Stylize};
 use ratatui::text::{Line, Span};
 use ratatui::widgets::{Block, Clear, List, ListItem, ListState, Paragraph, Wrap};
 
-use crate::config::Config;
+use crate::config::{ChoiceSet, Config};
 use crate::deps;
 use crate::source;
 use crate::state::InstalledState;
@@ -47,7 +47,7 @@ pub struct SelectView {
 impl SelectView {
     pub fn new(cfg: &Config, state: &InstalledState) -> Self {
         let n = cfg.packages.len();
-        Self {
+        let mut view = Self {
             installed: cfg.packages.iter().map(|p| state.is_installed(p)).collect(),
             selected: cfg.packages.iter().map(|p| p.selected || p.required).collect(),
             forced: vec![false; n],
@@ -59,7 +59,39 @@ impl SelectView {
             confirm: None,
             update_prompt: true,
             system_update: false,
+        };
+        view.normalize_choices(cfg);
+        view
+    }
+
+    /// At most one alternative per choice; a required choice always has one.
+    fn normalize_choices(&mut self, cfg: &Config) {
+        for choice in &cfg.choices {
+            let chosen: Vec<usize> = choice.packages.iter().copied().filter(|&p| self.selected[p]).collect();
+            for &p in chosen.iter().skip(1) {
+                self.selected[p] = false;
+                self.forced[p] = false;
+            }
+            if chosen.is_empty() && choice.required {
+                let pick = self.default_pick(choice);
+                self.selected[pick] = true;
+            }
         }
+    }
+
+    fn default_pick(&self, choice: &ChoiceSet) -> usize {
+        choice.packages.iter().copied().find(|&p| self.installed[p]).unwrap_or(choice.packages[0])
+    }
+
+    /// Selects `p`, deselecting the other alternatives of its choice.
+    fn choose(&mut self, cfg: &Config, p: usize) {
+        if let Some(c) = cfg.packages[p].choice {
+            for &other in &cfg.choices[c].packages {
+                self.selected[other] = false;
+                self.forced[other] = false;
+            }
+        }
+        self.selected[p] = true;
     }
 
     pub fn effective(&self, cfg: &Config) -> Vec<bool> {
@@ -104,6 +136,7 @@ impl SelectView {
                 for d in confirm.dependents {
                     self.selected[d] = false;
                 }
+                self.normalize_choices(cfg);
             }
             return Action::None;
         }
@@ -126,15 +159,22 @@ impl SelectView {
             },
             KeyCode::Left | KeyCode::Char('h') => self.collapse(&rows, cursor),
             KeyCode::Char(' ') => self.toggle(cfg, row),
-            KeyCode::Char('a') => self.selected.fill(true),
-            KeyCode::Char('n') => self.selected.clone_from(&self.required),
+            KeyCode::Char('a') => {
+                self.selected.fill(true);
+                self.normalize_choices(cfg);
+            }
+            KeyCode::Char('n') => {
+                self.selected.clone_from(&self.required);
+                self.normalize_choices(cfg);
+            }
             KeyCode::Char('u') => self.system_update = !self.system_update,
             KeyCode::Char('R') => {
                 if let Row::Package(p) = row {
-                    self.forced[p] = !self.forced[p];
-                    if self.forced[p] {
-                        self.selected[p] = true;
+                    let forced = !self.forced[p];
+                    if forced {
+                        self.choose(cfg, p);
                     }
+                    self.forced[p] = forced;
                 }
             }
             KeyCode::Enter => {
@@ -167,12 +207,16 @@ impl SelectView {
         let pkgs = Self::packages_of(cfg, row);
         if let Row::Package(p) = row {
             if !self.selected[p] {
-                self.selected[p] = true;
+                self.choose(cfg, p);
                 return;
             }
             let name = &cfg.packages[p].name;
             if self.required[p] {
                 self.notice = Some(format!("{name} is required and cannot be deselected"));
+                return;
+            }
+            if cfg.packages[p].choice.is_some_and(|c| cfg.choices[c].required) {
+                self.notice = Some(format!("{name} is a required choice; pick another alternative instead"));
                 return;
             }
             let dependents = deps::required_by(cfg, &self.selected, &self.installed, p);
@@ -188,6 +232,26 @@ impl SelectView {
             }
             return;
         }
+        let choice = match row {
+            Row::Section(si) => cfg.sections[si].choice,
+            Row::Group(si, gi) => cfg.sections[si].groups[gi].choice,
+            Row::Package(_) => None,
+        };
+        if let Some(c) = choice {
+            let choice = &cfg.choices[c];
+            if !choice.packages.iter().any(|&p| self.selected[p]) {
+                let pick = self.default_pick(choice);
+                self.selected[pick] = true;
+            } else if choice.required {
+                self.notice = Some("A required choice; pick another alternative instead".into());
+            } else {
+                for &p in &choice.packages {
+                    self.selected[p] = false;
+                    self.forced[p] = false;
+                }
+            }
+            return;
+        }
         let pkgs: Vec<usize> = pkgs.into_iter().filter(|&p| !self.required[p]).collect();
         if pkgs.is_empty() {
             self.notice = Some("All packages here are required".into());
@@ -200,6 +264,7 @@ impl SelectView {
                 self.forced[p] = false;
             }
         }
+        self.normalize_choices(cfg);
     }
 
     pub fn render(&mut self, cfg: &Config, frame: &mut Frame) {
@@ -272,28 +337,37 @@ impl SelectView {
                 let s = &cfg.sections[si];
                 let arrow = if self.expanded_sections[si] { "▾" } else { "▸" };
                 let pkgs = Self::packages_of(cfg, row);
-                ListItem::new(Line::from(vec![
+                let mut spans = vec![
                     Span::raw(format!("{arrow} {} ", self.check(&pkgs, effective))),
                     Span::styled(s.name.clone(), Style::new().bold().fg(Color::Cyan)),
-                ]))
+                ];
+                if s.choice.is_some() {
+                    spans.push(Span::raw("  one of").dim());
+                }
+                ListItem::new(Line::from(spans))
             }
             Row::Group(si, gi) => {
                 let g = &cfg.sections[si].groups[gi];
                 let arrow = if self.expanded_groups[si][gi] { "▾" } else { "▸" };
                 let pkgs = Self::packages_of(cfg, row);
-                ListItem::new(Line::from(vec![
+                let mut spans = vec![
                     Span::raw(format!("  {arrow} {} ", self.check(&pkgs, effective))),
                     Span::styled(g.name.clone(), Style::new().fg(Color::Yellow)),
-                ]))
+                ];
+                if g.choice.is_some() {
+                    spans.push(Span::raw("  one of").dim());
+                }
+                ListItem::new(Line::from(spans))
             }
             Row::Package(p) => {
                 let pkg = &cfg.packages[p];
-                let mark = if self.selected[p] {
-                    "[x]"
-                } else if effective[p] {
-                    "[+]"
-                } else {
-                    "[ ]"
+                let mark = match (self.selected[p], effective[p], pkg.choice.is_some()) {
+                    (true, _, false) => "[x]",
+                    (true, _, true) => "(•)",
+                    (false, true, false) => "[+]",
+                    (false, true, true) => "(+)",
+                    (false, false, false) => "[ ]",
+                    (false, false, true) => "( )",
                 };
                 let mut spans = vec![
                     Span::raw(format!("      {mark} ")),
@@ -348,7 +422,14 @@ impl SelectView {
         field("services", &pkg.service);
         field("user services", &pkg.user_service);
         field("post", &pkg.post);
-        let requires: Vec<String> = pkg.requires.iter().map(|&r| cfg.packages[r].name.clone()).collect();
+        let mut requires: Vec<String> = pkg.requires.iter().map(|&r| cfg.packages[r].name.clone()).collect();
+        requires.extend(pkg.requires_choice.iter().map(|&c| {
+            let choice = &cfg.choices[c];
+            choice.base.clone().unwrap_or_else(|| {
+                let names: Vec<&str> = choice.packages.iter().map(|&m| cfg.packages[m].name.as_str()).collect();
+                format!("one of {}", names.join("/"))
+            })
+        }));
         field("requires", &requires);
         if effective[p] && !self.selected[p] {
             let by: Vec<String> = deps::required_by(cfg, &self.selected, &self.installed, p)
