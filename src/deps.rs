@@ -43,9 +43,7 @@ pub fn order(cfg: &Config, effective: &[bool]) -> Vec<usize> {
     let wanted = effective.iter().filter(|&&e| e).count();
     while result.len() < wanted {
         let next = (0..effective.len())
-            .find(|&i| {
-                effective[i] && !placed[i] && cfg.requirements(i).all(|r| !effective[r] || placed[r])
-            })
+            .find(|&i| effective[i] && !placed[i] && cfg.requirements(i).all(|r| !effective[r] || placed[r]))
             .expect("cycles are rejected when the config is loaded");
         placed[next] = true;
         result.push(next);
