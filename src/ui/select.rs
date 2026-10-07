@@ -340,6 +340,7 @@ impl SelectView {
                 let mut spans = vec![
                     Span::raw(format!("{arrow} {} ", self.check(&pkgs, effective))),
                     Span::styled(s.name.clone(), Style::new().bold().fg(Color::Cyan)),
+                    Span::raw(self.count(cfg, &pkgs, effective)).dim(),
                 ];
                 if s.choice.is_some() {
                     spans.push(Span::raw("  one of").dim());
@@ -353,6 +354,7 @@ impl SelectView {
                 let mut spans = vec![
                     Span::raw(format!("  {arrow} {} ", self.check(&pkgs, effective))),
                     Span::styled(g.name.clone(), Style::new().fg(Color::Yellow)),
+                    Span::raw(self.count(cfg, &pkgs, effective)).dim(),
                 ];
                 if g.choice.is_some() {
                     spans.push(Span::raw("  one of").dim());
@@ -387,6 +389,25 @@ impl SelectView {
                 ListItem::new(Line::from(spans))
             }
         }
+    }
+
+    /// "n of m", where the alternatives of a choice count as one.
+    fn count(&self, cfg: &Config, pkgs: &[usize], effective: &[bool]) -> String {
+        let mut units: Vec<Vec<usize>> = Vec::new();
+        let mut seen_choices = Vec::new();
+        for &p in pkgs {
+            match cfg.packages[p].choice {
+                Some(c) if seen_choices.contains(&c) => {}
+                Some(c) => {
+                    seen_choices.push(c);
+                    units.push(cfg.choices[c].packages.clone());
+                }
+                None if units.iter().any(|u| u == &[p]) => {}
+                None => units.push(vec![p]),
+            }
+        }
+        let chosen = units.iter().filter(|u| u.iter().any(|&p| effective[p])).count();
+        format!("  {chosen} of {}", units.len())
     }
 
     fn check(&self, pkgs: &[usize], effective: &[bool]) -> &'static str {

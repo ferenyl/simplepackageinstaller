@@ -36,17 +36,24 @@ pub fn required_by(cfg: &Config, selected: &[bool], installed: &[bool], target: 
         .collect()
 }
 
-/// Topological order of the effective set, keeping file order where possible.
+/// Config order, with each package's requirements installed right before the first package that needs them.
 pub fn order(cfg: &Config, effective: &[bool]) -> Vec<usize> {
+    fn place(cfg: &Config, effective: &[bool], i: usize, placed: &mut [bool], result: &mut Vec<usize>) {
+        if placed[i] {
+            return;
+        }
+        placed[i] = true;
+        for r in cfg.requirements(i) {
+            if effective[r] {
+                place(cfg, effective, r, placed, result);
+            }
+        }
+        result.push(i);
+    }
     let mut placed = vec![false; effective.len()];
     let mut result = Vec::new();
-    let wanted = effective.iter().filter(|&&e| e).count();
-    while result.len() < wanted {
-        let next = (0..effective.len())
-            .find(|&i| effective[i] && !placed[i] && cfg.requirements(i).all(|r| !effective[r] || placed[r]))
-            .expect("cycles are rejected when the config is loaded");
-        placed[next] = true;
-        result.push(next);
+    for i in (0..effective.len()).filter(|&i| effective[i]) {
+        place(cfg, effective, i, &mut placed, &mut result);
     }
     result
 }

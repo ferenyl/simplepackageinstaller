@@ -1,4 +1,5 @@
 use std::path::PathBuf;
+use std::sync::atomic::Ordering;
 use std::sync::mpsc::{Receiver, Sender};
 
 use ratatui::Frame;
@@ -8,13 +9,14 @@ use ratatui::style::{Color, Modifier, Style, Stylize};
 use ratatui::text::{Line, Span};
 use ratatui::widgets::{Block, List, ListItem, ListState, Paragraph};
 
-use crate::runner::{Event, Job, Status};
+use crate::runner::{CancelFlags, Event, Job, Status};
 
 use super::password::{Outcome, PasswordPrompt};
 
 pub struct RunView {
     jobs: Vec<Job>,
     status: Vec<Status>,
+    reasons: Vec<Option<String>>,
     logs: Vec<Vec<String>>,
     list: ListState,
     follow: bool,
@@ -23,16 +25,24 @@ pub struct RunView {
     done: bool,
     rx: Receiver<Event>,
     sudo_tx: Sender<bool>,
+    cancel: CancelFlags,
     password: Option<PasswordPrompt>,
     log_file: PathBuf,
 }
 
 impl RunView {
-    pub fn new(jobs: Vec<Job>, rx: Receiver<Event>, sudo_tx: Sender<bool>, log_file: PathBuf) -> Self {
+    pub fn new(
+        jobs: Vec<Job>,
+        rx: Receiver<Event>,
+        sudo_tx: Sender<bool>,
+        cancel: CancelFlags,
+        log_file: PathBuf,
+    ) -> Self {
         let n = jobs.len();
         Self {
             jobs,
             status: vec![Status::Pending; n],
+            reasons: vec![None; n],
             logs: vec![Vec::new(); n],
             list: ListState::default().with_selected(Some(0)),
             follow: true,
@@ -41,6 +51,7 @@ impl RunView {
             done: false,
             rx,
             sudo_tx,
+            cancel,
             password: None,
             log_file,
         }
@@ -57,7 +68,10 @@ impl RunView {
                     }
                 }
                 Event::Line(i, text) => self.logs[i].push(text),
-                Event::Finished(i, s) => self.status[i] = s,
+                Event::Finished(i, s, reason) => {
+                    self.status[i] = s;
+                    self.reasons[i] = reason;
+                }
                 Event::NeedSudo => self.password = Some(PasswordPrompt::default()),
                 Event::AllDone => self.done = true,
             }
@@ -92,6 +106,14 @@ impl RunView {
                     self.list.select(Some(i));
                 }
             }
+            KeyCode::Char('c') if !self.status[cursor].is_finished() => {
+                self.cancel[cursor].store(true, Ordering::Relaxed);
+            }
+            KeyCode::Char('C') if !self.done => {
+                for flag in self.cancel.iter() {
+                    flag.store(true, Ordering::Relaxed);
+                }
+            }
             KeyCode::Enter => self.fullscreen = !self.fullscreen,
             KeyCode::PageUp => self.scroll += 10,
             KeyCode::PageDown => self.scroll = self.scroll.saturating_sub(10),
@@ -119,8 +141,16 @@ impl RunView {
                 .jobs
                 .iter()
                 .zip(&self.status)
-                .map(|(job, &s)| {
+                .enumerate()
+                .map(|(i, (job, &s))| {
                     let (icon, color, label) = describe(s);
+                    let label = match &self.reasons[i] {
+                        Some(reason) => format!("{label}: {reason}"),
+                        None if s == Status::Pending && self.cancel[i].load(Ordering::Relaxed) => {
+                            "cancelling".to_string()
+                        }
+                        None => label.to_string(),
+                    };
                     ListItem::new(Line::from(vec![
                         Span::styled(format!(" {icon} "), Style::new().fg(color)),
                         Span::raw(job.name.clone()),
@@ -139,7 +169,7 @@ impl RunView {
         let help_text = if self.done {
             format!(" done · log: {} · ↑↓ select  enter fullscreen  q quit", self.log_file.display())
         } else {
-            " ↑↓ select  f follow current  enter fullscreen  PgUp/PgDn scroll".to_string()
+            " ↑↓ select  f follow current  enter fullscreen  PgUp/PgDn scroll  c cancel  C cancel all".to_string()
         };
         frame.render_widget(Line::from(help_text).dim(), help);
 
@@ -163,7 +193,7 @@ impl RunView {
         let finished = count(Status::is_finished);
         let failed = count(|s| s == Status::Failed);
         let warn = count(|s| s == Status::PostFailed);
-        let skipped = count(|s| s == Status::Skipped);
+        let skipped = count(|s| matches!(s, Status::Skipped | Status::Cancelled));
         format!(
             " {} {finished}/{} · ✗ {failed} · ⚠ {warn} · ⊘ {skipped} ",
             if self.done { "Done" } else { "Installing" },
@@ -181,5 +211,6 @@ fn describe(s: Status) -> (&'static str, Color, &'static str) {
         Status::PostFailed => ("⚠", Color::LightRed, "installed, post failed"),
         Status::Failed => ("✗", Color::Red, "failed"),
         Status::Skipped => ("⊘", Color::DarkGray, "skipped"),
+        Status::Cancelled => ("⊘", Color::DarkGray, "cancelled"),
     }
 }

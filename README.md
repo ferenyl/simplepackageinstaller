@@ -59,8 +59,8 @@ Run it as your normal user, **not** as root. It asks for your sudo password once
 ### Workflow
 
 1. On start you are asked whether to run a full system update first (recommended).
-2. Select what to install. Already installed packages are marked `(installed)`; required packages cannot be unchecked; dependencies pulled in automatically are shown as `[+]`. Alternatives in a [choice](#choices) are shown as `( )` / `(•)`.
-3. Press `enter` to start. Packages are installed in dependency order. If a package fails, everything that depends on it is skipped.
+2. Select what to install. Already installed packages are marked `(installed)`; required packages cannot be unchecked; dependencies pulled in automatically are shown as `[+]`. Alternatives in a [choice](#choices) are shown as `( )` / `(•)`. Section and group rows show how many packages will be installed, e.g. `3 of 12`; a choice counts as one.
+3. Press `enter` to start. Packages are installed in config order; a package's requirements are installed right before the first package that needs them. If a package fails or is cancelled, everything that depends on it fails with `<package> not installed`.
 4. When done, the status of each package is shown along with the path to the log file.
 
 ### Keys — selection screen
@@ -85,6 +85,8 @@ Run it as your normal user, **not** as root. It asks for your sudo password once
 | `f` | Follow the currently running package |
 | `enter` | Toggle fullscreen log |
 | `PgUp` `PgDn` | Scroll log |
+| `c` | Cancel the selected package (stops it if running) |
+| `C` | Cancel everything that has not finished |
 | `q` / `esc` | Quit (when finished) |
 
 ### Status icons
@@ -96,8 +98,8 @@ Run it as your normal user, **not** as root. It asks for your sudo password once
 | `✓` | Installed |
 | `↷` | Already installed |
 | `⚠` | Installed, but a post command failed |
-| `✗` | Failed |
-| `⊘` | Skipped (a dependency failed or sudo was cancelled) |
+| `✗` | Failed, or a requirement was not installed |
+| `⊘` | Cancelled, or skipped because sudo was cancelled |
 
 ## Configuration
 
@@ -282,7 +284,7 @@ my-setup/
 
 All commands run without a terminal (stdin is closed), so they must not prompt:
 
-- `sudo` is wrapped with `sudo -n` via a shim in `PATH`; the password entered in the TUI is cached and kept alive for the whole run.
+- `sudo` is wrapped with `sudo -n` via a shim in `PATH`; the password entered in the TUI is cached and kept alive for the whole run. A leading `-k` before a command is dropped, since makepkg runs `sudo -k pacman …` and would otherwise ignore the cached credentials.
 - Git never prompts for credentials (`GIT_TERMINAL_PROMPT=0`) and new SSH host keys are accepted automatically.
 
 ## Security

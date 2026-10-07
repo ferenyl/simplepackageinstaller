@@ -50,7 +50,13 @@ impl Drop for Session {
 pub fn write_shim(dir: &Path) -> std::io::Result<()> {
     std::fs::create_dir_all(dir)?;
     let path = dir.join("sudo");
-    std::fs::write(&path, "#!/bin/sh\nexec /usr/bin/sudo -n \"$@\"\n")?;
+    // makepkg runs `sudo -k pacman …`, which would ignore the cached credentials.
+    std::fs::write(
+        &path,
+        "#!/bin/sh\n\
+         case \"$1\" in -k|--reset-timestamp) [ $# -gt 1 ] && shift ;; esac\n\
+         exec /usr/bin/sudo -n \"$@\"\n",
+    )?;
     std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o755))
 }
 

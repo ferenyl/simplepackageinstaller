@@ -1,7 +1,9 @@
 use std::fs::File;
 use std::io::{BufRead, BufReader, Read, Write};
+use std::os::unix::process::CommandExt;
 use std::path::PathBuf;
-use std::process::{Command, Stdio};
+use std::process::{Child, Command, Stdio};
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc::{Receiver, Sender};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
@@ -17,6 +19,7 @@ pub enum Status {
     PostFailed,
     Failed,
     Skipped,
+    Cancelled,
 }
 
 impl Status {
@@ -44,12 +47,17 @@ pub struct Job {
 pub enum Event {
     Started(usize),
     Line(usize, String),
-    Finished(usize, Status),
+    /// Status plus an optional reason shown next to it.
+    Finished(usize, Status, Option<String>),
     NeedSudo,
     AllDone,
 }
 
+/// Per-job cancel flags, set from the UI and checked by the runner.
+pub type CancelFlags = Arc<Vec<AtomicBool>>;
+
 pub struct Context {
+    pub cancel: CancelFlags,
     pub config_dir: PathBuf,
     pub dry_run: bool,
     pub log_file: PathBuf,
@@ -89,19 +97,28 @@ fn run(jobs: Vec<Job>, ctx: Context, tx: Sender<Event>, sudo_rx: Receiver<bool>)
 
     let mut statuses = vec![Status::Pending; jobs.len()];
     let mut sudo_ok = ctx.dry_run;
-    let finish = |statuses: &mut Vec<Status>, i: usize, s: Status| {
+    let finish = |statuses: &mut Vec<Status>, i: usize, s: Status, reason: Option<String>| {
         statuses[i] = s;
-        let _ = tx.send(Event::Finished(i, s));
+        let _ = tx.send(Event::Finished(i, s, reason));
     };
+    let cancelled = |i: usize| ctx.cancel[i].load(Ordering::Relaxed);
 
     for (i, job) in jobs.iter().enumerate() {
-        if job.deps.iter().any(|&d| !statuses[d].is_ok()) {
-            log.line(i, "skipped: a dependency failed".into());
-            finish(&mut statuses, i, Status::Skipped);
+        if cancelled(i) {
+            log.line(i, "cancelled".into());
+            finish(&mut statuses, i, Status::Cancelled, None);
+            continue;
+        }
+        let missing: Vec<&str> =
+            job.deps.iter().filter(|&&d| !statuses[d].is_ok()).map(|&d| jobs[d].name.as_str()).collect();
+        if !missing.is_empty() {
+            let reason = format!("{} not installed", missing.join(", "));
+            log.line(i, format!("failed: {reason}"));
+            finish(&mut statuses, i, Status::Failed, Some(reason));
             continue;
         }
         if job.skip {
-            finish(&mut statuses, i, Status::AlreadyInstalled);
+            finish(&mut statuses, i, Status::AlreadyInstalled, None);
             continue;
         }
         if job.needs_sudo && !sudo_ok {
@@ -109,9 +126,13 @@ fn run(jobs: Vec<Job>, ctx: Context, tx: Sender<Event>, sudo_rx: Receiver<bool>)
                 let _ = tx.send(Event::NeedSudo);
                 sudo_rx.recv().unwrap_or(false)
             };
+            // Credentials cached before start would otherwise expire during long builds.
+            if sudo_ok && !ctx.dry_run {
+                sudo::start_keepalive();
+            }
             if !sudo_ok {
                 for j in i..jobs.len() {
-                    finish(&mut statuses, j, Status::Skipped);
+                    finish(&mut statuses, j, Status::Skipped, Some("sudo cancelled".into()));
                 }
                 break;
             }
@@ -122,7 +143,8 @@ fn run(jobs: Vec<Job>, ctx: Context, tx: Sender<Event>, sudo_rx: Receiver<bool>)
         log.line(i, format!("== {} ==", job.name));
 
         if !run_command(i, &job.install, &ctx, &log) {
-            finish(&mut statuses, i, Status::Failed);
+            let status = if cancelled(i) { Status::Cancelled } else { Status::Failed };
+            finish(&mut statuses, i, status, None);
             continue;
         }
         if let Some(marker) = &job.marker
@@ -134,7 +156,8 @@ fn run(jobs: Vec<Job>, ctx: Context, tx: Sender<Event>, sudo_rx: Receiver<bool>)
             let _ = File::create(marker);
         }
         let post_ok = job.post.iter().all(|cmd| run_command(i, cmd, &ctx, &log));
-        finish(&mut statuses, i, if post_ok { Status::Done } else { Status::PostFailed });
+        let reason = (!post_ok && cancelled(i)).then(|| "post cancelled".to_string());
+        finish(&mut statuses, i, if post_ok { Status::Done } else { Status::PostFailed }, reason);
     }
     let _ = tx.send(Event::AllDone);
 }
@@ -157,6 +180,8 @@ fn run_command(job: usize, cmd: &str, ctx: &Context, log: &Logger) -> bool {
         .stdin(Stdio::null())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
+        // Own process group, so cancelling reaches everything the command started.
+        .process_group(0)
         .spawn();
     let mut child = match child {
         Ok(c) => c,
@@ -169,7 +194,7 @@ fn run_command(job: usize, cmd: &str, ctx: &Context, log: &Logger) -> bool {
         child.stdout.take().map(|s| pipe(job, s, log.clone())),
         child.stderr.take().map(|s| pipe(job, s, log.clone())),
     ];
-    let status = child.wait();
+    let status = wait(&mut child, &ctx.cancel[job], job, log);
     for r in readers.into_iter().flatten() {
         let _ = r.join();
     }
@@ -183,6 +208,22 @@ fn run_command(job: usize, cmd: &str, ctx: &Context, log: &Logger) -> bool {
             log.line(job, format!("error: {e}"));
             false
         }
+    }
+}
+
+fn wait(child: &mut Child, cancel: &AtomicBool, job: usize, log: &Logger) -> std::io::Result<std::process::ExitStatus> {
+    let mut signalled = false;
+    loop {
+        if let Some(status) = child.try_wait()? {
+            return Ok(status);
+        }
+        if cancel.load(Ordering::Relaxed) && !signalled {
+            signalled = true;
+            log.line(job, "cancelling…".into());
+            let group = format!("-{}", child.id());
+            let _ = Command::new("kill").args(["-TERM", "--", &group]).stderr(Stdio::null()).status();
+        }
+        std::thread::sleep(Duration::from_millis(100));
     }
 }
 

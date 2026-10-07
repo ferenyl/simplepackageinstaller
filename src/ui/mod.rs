@@ -3,7 +3,8 @@ mod run;
 mod select;
 
 use std::path::PathBuf;
-use std::sync::mpsc;
+use std::sync::atomic::AtomicBool;
+use std::sync::{Arc, mpsc};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use anyhow::Result;
@@ -12,7 +13,7 @@ use ratatui::layout::Rect;
 use ratatui::{DefaultTerminal, Frame};
 
 use crate::config::Config;
-use crate::runner::{self, Context, Job};
+use crate::runner::{self, CancelFlags, Context, Job};
 use crate::source::{self, Source};
 use crate::state::{self, InstalledState};
 
@@ -107,7 +108,9 @@ impl App {
         }));
 
         let stamp = SystemTime::now().duration_since(UNIX_EPOCH).map(|d| d.as_secs()).unwrap_or(0);
+        let cancel: CancelFlags = Arc::new(jobs.iter().map(|_| AtomicBool::new(false)).collect());
         let ctx = Context {
+            cancel: cancel.clone(),
             config_dir: self.config_dir.clone(),
             dry_run: self.dry_run,
             log_file: state::state_dir().join("logs").join(format!("{stamp}.log")),
@@ -117,7 +120,7 @@ impl App {
         let (tx, rx) = mpsc::channel();
         let (sudo_tx, sudo_rx) = mpsc::channel();
         runner::spawn(jobs.clone(), ctx, tx, sudo_rx);
-        self.screen = Screen::Run(RunView::new(jobs, rx, sudo_tx, log_file));
+        self.screen = Screen::Run(RunView::new(jobs, rx, sudo_tx, cancel, log_file));
     }
 }
 
