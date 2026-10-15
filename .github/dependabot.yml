@@ -4,8 +4,15 @@ updates:
     directory: /
     schedule:
       interval: weekly
+      day: wednesday
+      time: "05:00"
+      timezone: Europe/Stockholm
     groups:
       cargo:
+        patterns:
+          - "*"
+      cargo-security:
+        applies-to: security-updates
         patterns:
           - "*"
 
@@ -13,7 +20,14 @@ updates:
     directory: /
     schedule:
       interval: weekly
+      day: wednesday
+      time: "05:00"
+      timezone: Europe/Stockholm
     groups:
       github-actions:
+        patterns:
+          - "*"
+      github-actions-security:
+        applies-to: security-updates
         patterns:
           - "*"
