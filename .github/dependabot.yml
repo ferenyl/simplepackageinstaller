@@ -11,6 +11,10 @@ updates:
       cargo:
         patterns:
           - "*"
+      cargo-security:
+        applies-to: security-updates
+        patterns:
+          - "*"
 
   - package-ecosystem: github-actions
     directory: /
@@ -21,5 +25,9 @@ updates:
       timezone: Europe/Stockholm
     groups:
       github-actions:
+        patterns:
+          - "*"
+      github-actions-security:
+        applies-to: security-updates
         patterns:
           - "*"
